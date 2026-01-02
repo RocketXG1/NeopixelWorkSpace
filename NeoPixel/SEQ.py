@@ -43,7 +43,8 @@ while True:
     #strip.show()
     
     for Step in colors:
-        strip.fill(Step)
+        strip.set_pixel(0,Step)
+        #strip.fill(Step)
         time.sleep(0.1)
         strip.show()
         
