@@ -197,7 +197,7 @@ class Neopixel:
             self.set_pixel(i, rgb_w)
         time.sleep(self.delay)
 
-    def circular_bounce_fill(self, color=(255, 0, 0), delay=0.05, brightness=50):
+    def circular_bounce_fill(self, color=(255, 0, 0), Startdelay=0.05,FinishDelay=0.05, brightness=50):
         numpix = self.num_leds
         self.brightness(brightness)
         off = (0, 0, 0, 0) if 'W' in self.mode else (0, 0, 0)
@@ -215,7 +215,7 @@ class Neopixel:
                 self.set_pixel(prev_left, off)
                 self.set_pixel(prev_right, off)
             self.show()
-            time.sleep(delay)
+            time.sleep(Startdelay)
             previous = (left, right)
             left += 1
             right -= 1
@@ -230,5 +230,5 @@ class Neopixel:
                 right += 1
                 self.set_pixel(right, color)
             self.show()
-            time.sleep(delay)
+            time.sleep(FinishDelay)
 
