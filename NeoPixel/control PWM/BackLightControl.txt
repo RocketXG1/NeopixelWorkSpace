@@ -1,0 +1,98 @@
+Indice
+--->1. Proposito general de la clase BackLightControl
+2. Funciones / metodos disponibles
+   2.1 __init__
+   2.2 set_percent
+   2.3 ramp_percent
+   2.4 deinit
+--->3. Descripcion detallada de funciones y lineas
+
+1. Proposito general de la clase BackLightControl
+--->La clase BackLightControl encapsula la configuracion y el manejo de PWM en un pin
+--->para controlar el brillo (porcentaje) de un backlight. Permite fijar el nivel de
+--->PWM en porcentaje y realizar rampas de brillo en pasos porcentuales distribuidos
+--->en un tiempo total.
+
+2. Funciones / metodos disponibles
+2.1 __init__(pin, frequency=1000)
+--->    Inicializa el PWM en el pin indicado y fija la frecuencia.
+2.2 set_percent(percent)
+--->    Ajusta el PWM a un porcentaje entre 0 y 100.
+2.3 ramp_percent(step_percent, total_time_s, start_percent=0, end_percent=100)
+--->    Ejecuta una rampa de porcentaje en pasos sobre un tiempo total.
+2.4 deinit()
+--->    Libera el recurso PWM.
+
+3. Descripcion detallada de funciones y lineas
+
+Funcion: __init__(pin, frequency=1000)
+- Linea: from machine import Pin, PWM
+--->  Importa Pin y PWM para crear y controlar el PWM del microcontrolador.
+- Linea: import time
+--->  Importa time para usar retardos en la rampa.
+- Linea: class BackLightControl:
+--->  Define la clase que agrupa el control PWM.
+- Linea: def __init__(self, pin, frequency=1000):
+--->  Define el constructor con el pin y la frecuencia PWM.
+- Linea: self._pwm = PWM(Pin(pin))
+--->  Crea el objeto PWM asociado al pin indicado.
+- Linea: self._pwm.freq(frequency)
+--->  Configura la frecuencia del PWM.
+- Linea: self._percent = 0
+--->  Guarda el porcentaje actual en 0.
+- Linea: self.set_percent(0)
+--->  Aplica 0% al iniciar (apagado).
+
+Funcion: set_percent(percent)
+- Linea: def set_percent(self, percent):
+--->  Define el metodo para fijar el porcentaje.
+- Linea: percent = max(0, min(100, int(percent)))
+--->  Convierte a entero y limita el valor entre 0 y 100.
+- Linea: self._percent = percent
+--->  Guarda el porcentaje actual.
+- Linea: duty = int((percent / 100) * 65535)
+--->  Convierte el porcentaje a duty de 16 bits.
+- Linea: self._pwm.duty_u16(duty)
+--->  Aplica el duty al PWM.
+
+Funcion: ramp_percent(step_percent, total_time_s, start_percent=0, end_percent=100)
+- Linea: def ramp_percent(self, step_percent, total_time_s, start_percent=0, end_percent=100):
+--->  Define el metodo para generar la rampa de PWM.
+- Linea: step_percent = abs(int(step_percent))
+--->  Asegura que el paso sea entero y positivo.
+- Linea: if step_percent < 1: step_percent = 1
+--->  Evita pasos menores a 1%.
+- Linea: start_percent = max(0, min(100, int(start_percent)))
+--->  Limita el porcentaje inicial entre 0 y 100.
+- Linea: end_percent = max(0, min(100, int(end_percent)))
+--->  Limita el porcentaje final entre 0 y 100.
+- Linea: if start_percent == end_percent: ...
+--->  Si inicio y fin son iguales, aplica directamente el valor final.
+- Linea: direction = 1 if end_percent > start_percent else -1
+--->  Define la direccion de la rampa (sube o baja).
+- Linea: step_percent *= direction
+--->  Aplica el signo al paso.
+- Linea: steps = int((end_percent - start_percent) / step_percent)
+--->  Calcula la cantidad de pasos necesarios.
+- Linea: if steps == 0: ...
+--->  Si no hay pasos, aplica el valor final y termina.
+- Linea: delay_s = total_time_s / abs(steps)
+--->  Calcula el retardo entre pasos para cumplir el tiempo total.
+- Linea: current = start_percent
+--->  Inicializa el porcentaje actual.
+- Linea: for _ in range(abs(steps)):
+--->  Itera por cada paso de la rampa.
+- Linea: self.set_percent(current)
+--->  Aplica el porcentaje actual.
+- Linea: time.sleep(delay_s)
+--->  Espera el tiempo calculado entre pasos.
+- Linea: current += step_percent
+--->  Actualiza el porcentaje para el siguiente paso.
+- Linea: self.set_percent(end_percent)
+--->  Asegura que el valor final se aplique al terminar.
+
+Funcion: deinit()
+- Linea: def deinit(self):
+--->  Define el metodo de cierre del PWM.
+- Linea: self._pwm.deinit()
+--->  Libera el recurso PWM del microcontrolador.
