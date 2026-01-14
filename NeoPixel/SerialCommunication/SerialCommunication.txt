@@ -1,0 +1,54 @@
+Uso de la clase HC06Controller (MicroPython, Raspberry Pi Pico)
+===============================================================
+
+Requisitos
+----------
+- MicroPython instalado en la Raspberry Pi Pico.
+- Módulo Bluetooth HC-06 conectado por UART.
+- Conexiones típicas:
+  - HC-06 TX -> Pico RX (pin UART RX).
+  - HC-06 RX -> Pico TX (pin UART TX) con divisor de voltaje si es necesario.
+  - GND común y alimentación adecuada.
+
+Ejemplo de uso
+--------------
+from SerialCommunication import HC06Config, HC06Controller
+
+# Configurar el UART: usa el UART 0 con baudrate 9600.
+# Ajusta los pines según tu cableado (ejemplo: tx=0, rx=1).
+config = HC06Config(uart_id=0, baudrate=9600, tx_pin=0, rx_pin=1)
+controller = HC06Controller(config)
+
+# Cambiar nombre del dispositivo
+respuesta_nombre = controller.set_name("MiHC06")
+print("Respuesta nombre:", respuesta_nombre)
+
+# Cambiar PIN de emparejamiento
+respuesta_pin = controller.set_password("1234")
+print("Respuesta PIN:", respuesta_pin)
+
+Descripción de la clase y métodos
+---------------------------------
+HC06Config
+- Contiene la configuración de UART.
+- uart_id: número de UART (0 o 1 en Pico).
+- baudrate: velocidad del puerto serie (por defecto 9600).
+- tx_pin / rx_pin: pines de transmisión y recepción.
+- timeout_ms: tiempo de espera en milisegundos.
+
+HC06Controller
+- Inicializa el UART y envía comandos AT al HC-06.
+
+Métodos públicos
+- set_name(name: str) -> str
+  Envía el comando AT+NAME<nombre> para cambiar el nombre del módulo.
+  Devuelve la respuesta del módulo (puede ser vacía si no responde).
+
+- set_password(pin: str) -> str
+  Envía el comando AT+PIN<pin> para cambiar el PIN (4 dígitos).
+  Devuelve la respuesta del módulo (puede ser vacía si no responde).
+
+Notas
+-----
+- El HC-06 debe estar en modo AT para aceptar cambios de nombre/PIN.
+- Algunos módulos requieren mantener el botón (si existe) o encender en modo AT.
