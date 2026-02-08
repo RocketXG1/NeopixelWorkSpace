@@ -60,7 +60,7 @@ class SemaforoController:
     def set_semaforo_amarillo(self, semaforo_id):
         self._set_semaforo_apagado(semaforo_id)
         base = self._base_index(semaforo_id)
-        self.neopixel.set_pixel(base, AMARILLO)
+        self.neopixel.set_pixel(base+1, AMARILLO)
 
     def mostrar(self):
         self.neopixel.show()
