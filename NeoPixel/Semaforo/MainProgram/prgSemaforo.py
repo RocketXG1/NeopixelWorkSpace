@@ -13,23 +13,24 @@ import time
 from neopixel import Neopixel
 
 # Configuración general del NeoPixel (ajusta según tu hardware).
-PIN_NEOPIXEL = 0
+PIN_NEOPIXEL = 29
 STATE_MACHINE = 0
 NUM_SEMAFOROS = 3
 LEDS_POR_SEMAFORO = 3
 TOTAL_LEDS = NUM_SEMAFOROS * LEDS_POR_SEMAFORO
 
-# Colores RGB
+# Colores RGB->GRB
 ROJO = (255, 0, 0)
 AMARILLO = (255, 255, 0)
 VERDE = (0, 255, 0)
 APAGADO = (0, 0, 0)
 
 # Tiempos (segundos)
-TIEMPO_VERDE = 10
-TIEMPO_AMARILLO = 3
+TIEMPO_VERDE = 12
+TIEMPO_AMARILLO = 4
 TIEMPO_PARPADEO = 0.5
-TIEMPO_INICIO_ROJO_PARPADEO = 10
+TIEMPO_ARRANQUE = 0.2
+TIEMPO_INICIO_ROJO_PARPADEO = 5
 
 
 class SemaforoController:
@@ -66,7 +67,7 @@ class SemaforoController:
 
     def inicial_rojo_parpadeo(self):
         """Parpadea los tres semáforos en rojo por 10 segundos."""
-        ciclos = int(TIEMPO_INICIO_ROJO_PARPADEO / TIEMPO_PARPADEO)
+        ciclos = int(TIEMPO_INICIO_ROJO_PARPADEO / TIEMPO_ARRANQUE)
         for i in range(ciclos):
             color = ROJO if i % 2 == 0 else APAGADO
             for semaforo_id in range(NUM_SEMAFOROS):
@@ -74,7 +75,7 @@ class SemaforoController:
                 for offset in range(LEDS_POR_SEMAFORO):
                     self.neopixel.set_pixel(base + offset, color)
             self.mostrar()
-            time.sleep(TIEMPO_PARPADEO)
+            time.sleep(TIEMPO_ARRANQUE)
 
     def ciclo_semaforo(self):
         """Ejecuta el ciclo continuo de los semáforos."""
@@ -103,11 +104,17 @@ class SemaforoController:
 
 
 def main():
-    neopixel_strip = Neopixel(TOTAL_LEDS, STATE_MACHINE, PIN_NEOPIXEL, mode="RGB")
+    strip = Neopixel(1, 0, 16, "GRB")
+    strip.fill(VERDE)
+    strip.show()   
+    strip.brightness(5)
+    neopixel_strip = Neopixel(TOTAL_LEDS, STATE_MACHINE, PIN_NEOPIXEL, mode="GRB")
+    neopixel_strip.brightness(5)
     controlador = SemaforoController(neopixel_strip)
     controlador.inicial_rojo_parpadeo()
     controlador.ciclo_semaforo()
 
-
-if __name__ == "__main__":
+while True:
     main()
+#if __name__ == "__main__":
+#    main()
