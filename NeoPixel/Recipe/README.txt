@@ -1,41 +1,47 @@
 Indice
 1. Proposito del codigo
 2. Uso basico
-3. Explicacion linea por linea
+3. Ejemplo pequeno de uso
+4. Funciones y metodos disponibles
 
 1. Proposito del codigo
-Este programa en MicroPython permite leer y escribir un archivo de configuracion en formato clave=valor en la ruta absoluta /Recipe/recipe.txt. Sirve para guardar ajustes simples sin usar JSON ni librerias externas.
+Este modulo en MicroPython permite guardar configuraciones simples en archivos de texto con formato clave=valor dentro de la carpeta /Recipe. La clase principal recibe solo el nombre del archivo y construye la ruta completa automaticamente.
 
 2. Uso basico
 - Copia prgRecipe.py en el Raspberry Pi Pico (o en tu proyecto).
 - Asegura que exista la carpeta /Recipe en la raiz del Pico.
-- Para leer la configuracion:
-    config = read_config_kv()
-- Para actualizar o agregar un valor:
-    config["NUEVO_PARAMETRO"] = "123"
-- Para guardar la configuracion:
-    write_config_kv(config)
+- Crea una instancia indicando unicamente el nombre del archivo.
+- Usa los metodos de la clase para crear, leer, modificar y eliminar claves.
 
-3. Explicacion linea por linea
-Linea 1: Define la funcion read_config_kv con la ruta por defecto /Recipe/recipe.txt.
-Linea 2: Crea el diccionario vacio donde se guardaran las claves y valores.
-Linea 3: Inicia un bloque try para capturar errores de apertura del archivo.
-Linea 4: Abre el archivo en modo lectura.
-Linea 5: Recorre el archivo linea por linea.
-Linea 6: Elimina espacios y saltos de linea al inicio y al final.
-Linea 7: Omite lineas vacias o que no contengan el caracter '='.
-Linea 8: Continua al siguiente ciclo cuando la linea no es valida.
-Linea 9: Separa la linea en clave y valor usando solo el primer '='.
-Linea 10: Elimina espacios alrededor de la clave.
-Linea 11: Elimina espacios alrededor del valor.
-Linea 12: Verifica que la clave no este vacia.
-Linea 13: Guarda la clave y el valor en el diccionario.
-Linea 14: Captura el OSError cuando el archivo no existe o no se puede abrir.
-Linea 15: Retorna un diccionario vacio si ocurre un error.
-Linea 16: Retorna el diccionario con la configuracion cargada.
-Linea 17: Linea en blanco para separar funciones.
-Linea 18: Linea en blanco para separar funciones.
-Linea 19: Define la funcion write_config_kv con la ruta por defecto /Recipe/recipe.txt.
-Linea 20: Abre el archivo en modo escritura para sobrescribirlo.
-Linea 21: Recorre cada par clave-valor del diccionario.
-Linea 22: Escribe cada par en formato clave=valor y lo termina con un salto de linea.
+3. Ejemplo pequeno de uso
+from prgRecipe import RecipeKeyValueStore
+
+recipe = RecipeKeyValueStore("recipe.txt")
+recipe.create({"modo": "automatico", "brillo": "25"})
+recipe.set_value("color", "verde")
+recipe.update_values({"brillo": "50", "velocidad": "120"})
+print(recipe.read_all())
+print(recipe.read_value("modo"))
+recipe.delete_value("color")
+
+4. Funciones y metodos disponibles
+- RecipeKeyValueStore(nombre_archivo, base_path="/Recipe")
+  Crea el manejador del archivo clave=valor.
+- create(initial_data=None)
+  Crea o sobrescribe el archivo con un diccionario inicial.
+- read_all()
+  Retorna todas las claves y valores del archivo.
+- read_value(key, default=None)
+  Retorna el valor de una clave especifica.
+- set_value(key, value)
+  Agrega o modifica una sola clave.
+- update_values(values)
+  Agrega o modifica varias claves desde un diccionario.
+- delete_value(key)
+  Elimina una clave del archivo.
+- delete_file()
+  Elimina el archivo completo.
+- read_config_kv(path="/Recipe/recipe.txt")
+  Funcion de compatibilidad para leer un archivo existente.
+- write_config_kv(config, path="/Recipe/recipe.txt")
+  Funcion de compatibilidad para escribir un archivo existente.
