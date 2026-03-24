@@ -1,0 +1,81 @@
+DEMO DE USO - prgRecipeTimer.py
+===============================
+
+Objetivo:
+Mostrar cómo instanciar `RecipeTimerStore` y usar sus métodos más importantes.
+
+
+1) Ejemplo mínimo de instanciación
+----------------------------------
+```python
+from prgRecipeTimer import RecipeTimerStore
+
+# Usa archivo recipe_timer.ini en /RecipeTime por defecto
+store = RecipeTimerStore()
+```
+
+
+2) Ejemplo completo de uso
+--------------------------
+```python
+from prgRecipeTimer import RecipeTimerStore
+
+# 1) Crear almacenamiento (carga automática desde disco)
+store = RecipeTimerStore(filename="recipe_timer.ini", base_path="/RecipeTime")
+
+# 2) Agregar eventos
+store.add_event(1, "Lunes", "08:00:00", 1, 0, 0)
+store.add_event(2, "Martes", "12:30:00", 0, 1, 1)
+
+# 3) Listar eventos
+print("Eventos programados:")
+for ev in store.list_events():
+    print(ev.event_id, ev.dow, ev.time_text, ev.out1, ev.out2, ev.out3)
+
+# 4) Consultar un evento por ID
+item = store.get_event(1)
+if item:
+    print("Evento 1:", item.dow, item.time_text)
+
+# 5) Actualizar evento (mismo ID, nuevo horario/salidas)
+store.update_event(2, "Martes", "13:00:00", 1, 1, 0)
+
+# 6) Eliminar un evento
+deleted = store.delete_event(1)
+if deleted:
+    print("Se eliminó evento:", deleted.event_id)
+
+# 7) Mostrar estado final
+print("Eventos finales:")
+for ev in store.list_events():
+    print(ev.event_id, ev.dow, ev.time_text, ev.out1, ev.out2, ev.out3)
+```
+
+
+3) Ejemplo con manejo de errores
+--------------------------------
+```python
+from prgRecipeTimer import RecipeTimerStore
+
+store = RecipeTimerStore()
+
+try:
+    # Error: hora inválida
+    store.add_event(3, "Miércoles", "25:99:00", 1, 0, 1)
+except ValueError as e:
+    print("No se pudo guardar el evento:", e)
+
+try:
+    store.add_event(4, "Jueves", "10:00:00", 1, 1, 0)
+    # Error: mismo día/hora duplicado
+    store.add_event(5, "Jueves", "10:00:00", 0, 0, 1)
+except ValueError as e:
+    print("Evento duplicado:", e)
+```
+
+
+4) Resultado esperado
+---------------------
+- Los eventos válidos se guardan en `/RecipeTime/recipe_timer.ini`.
+- Si reinicias el programa y vuelves a crear `RecipeTimerStore()`, recupera esos eventos.
+- Si hay datos inválidos o duplicados, se lanzan excepciones `ValueError`.

@@ -1,0 +1,277 @@
+MANUAL TÉCNICO - prgRecipeTimer.py
+==================================
+
+1) ¿Qué es este archivo?
+------------------------
+`prgRecipeTimer.py` es un módulo en Python/MicroPython para gestionar una agenda de eventos temporizados
+("recetas" de activación) que se guardan en archivo `.ini`.
+
+Cada evento contiene:
+- ID del evento (`event_id`): número único de 1 a 50.
+- Día de la semana (`dow`): Lunes a Domingo.
+- Hora (`time_text`): formato exacto `HH:MM:SS`.
+- Tres salidas binarias (`out1`, `out2`, `out3`): cada una puede ser 0 o 1.
+
+El módulo está diseñado para equipos limitados (ej. MicroPython/Pico), por eso:
+- usa estructuras compactas (`__slots__`),
+- escribe/lee un formato simple de texto,
+- minimiza dependencias.
+
+
+2) Uso general del módulo
+-------------------------
+Con este módulo puedes:
+1. Cargar eventos guardados automáticamente al crear `RecipeTimerStore`.
+2. Agregar eventos nuevos con validación de datos.
+3. Evitar horarios duplicados por día + hora.
+4. Actualizar eventos existentes.
+5. Eliminar eventos.
+6. Listar y consultar eventos.
+7. Persistir toda la configuración en `recipe_timer.ini`.
+
+
+3) Variables y constantes principales
+-------------------------------------
+A) `VALID_DAYS`
+- Tipo: tupla de cadenas.
+- Contenido: ("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo").
+- Uso: validar el día recibido en `validate_dow`.
+
+B) `RTC_WEEKDAY_MAP`
+- Tipo: tupla de cadenas.
+- Contenido: mismo orden de días de semana.
+- Uso actual: declarado para mapear día de RTC, aunque en este archivo no se consume directamente.
+
+C) `os`
+- Se intenta importar `os`; si falla (ImportError), queda en `None`.
+- Uso: crear carpeta base en `_ensure_base_path` solo si `os` existe.
+
+D) En `RecipeTimerStore`
+- `base_path`: ruta base de almacenamiento (default: `/RecipeTime`).
+- `filename`: nombre de archivo (default: `recipe_timer.ini`).
+- `path`: combinación `base_path + '/' + filename`.
+- `events`: diccionario `{event_id: RecipeTimerEvent}` en memoria.
+
+E) En `RecipeTimerEvent`
+- `event_id`, `dow`, `time_text`, `out1`, `out2`, `out3`.
+- Todos se validan en el constructor.
+
+
+4) Formato del archivo guardado
+-------------------------------
+El archivo se guarda por secciones, una por evento:
+
+[event1]
+dow=Lunes
+hora=08:30:00
+out1=1
+out2=0
+out3=1
+
+[event2]
+dow=Martes
+hora=10:00:00
+out1=0
+out2=1
+out3=0
+
+Notas:
+- La clave de hora se llama `hora` en el archivo.
+- Las secciones son `[event<ID>]`.
+- Se omite cualquier sección inválida al cargar.
+
+
+5) Explicación de métodos y funciones
+-------------------------------------
+
+A) Funciones de validación
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+1. `validate_event_id(event_id)`
+- Convierte a entero.
+- Exige rango 1..50.
+- Lanza `ValueError` si está fuera de rango.
+
+2. `validate_dow(dow)`
+- Convierte a cadena y elimina espacios extremos.
+- Verifica que esté en `VALID_DAYS`.
+- Lanza `ValueError` si no es válido.
+
+3. `normalize_time(time_text)`
+- Convierte a cadena y elimina espacios.
+- Exige formato de 3 partes separadas por `:`.
+- Convierte HH, MM, SS a enteros.
+- Valida rangos: HH 0..23, MM 0..59, SS 0..59.
+- Retorna formato normalizado con cero a la izquierda (`%02d:%02d:%02d`).
+
+4. `validate_output(value, label)`
+- Convierte a entero.
+- Solo permite 0 o 1.
+- Si no, lanza `ValueError` con etiqueta (`out1`, `out2`, etc.).
+
+
+B) Clase `RecipeTimerEvent`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- Propósito: representar 1 evento de forma compacta.
+
+Métodos:
+1. `__init__(event_id, dow, time_text, out1, out2, out3)`
+   - Ejecuta todas las validaciones.
+   - Guarda el estado normalizado.
+
+2. `same_schedule(dow, time_text)`
+   - Devuelve `True` si el evento tiene el mismo día y hora.
+   - Se usa para detectar duplicados.
+
+3. `write_to_file(file)`
+   - Serializa el evento al archivo abierto.
+   - Escribe sección, día, hora y salidas.
+
+
+C) Clase `RecipeTimerStore`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- Propósito: administrar colección de eventos, lectura/escritura y reglas.
+
+Métodos:
+1. `__init__(filename='recipe_timer.ini', base_path='/RecipeTime')`
+   - Valida nombre de archivo no vacío.
+   - Arma rutas internas.
+   - Inicializa `events`.
+   - Carga datos existentes con `load()`.
+
+2. `_ensure_base_path()`
+   - Intenta crear la carpeta base.
+   - Ignora error si ya existe o no se puede crear.
+   - Si `os` es `None`, no hace nada.
+
+3. `load()`
+   - Limpia `events`.
+   - Abre archivo en lectura; si no existe, retorna diccionario vacío.
+   - Recorre línea por línea.
+   - Detecta secciones `[eventN]`.
+   - Acumula pares `clave=valor`.
+   - Al cerrar sección (o al final), intenta crear `RecipeTimerEvent`.
+   - Si una sección es inválida, la omite sin interrumpir la carga.
+   - Retorna `self.events`.
+
+4. `_parse_section_id(line)`
+   - Extrae número N de `[eventN]`.
+
+5. `_store_loaded_event(event_id, data)`
+   - Crea `RecipeTimerEvent` desde dict cargado.
+   - Si hay error de validación, descarta ese evento.
+   - Si es válido, lo inserta en `self.events`.
+
+6. `save()`
+   - Garantiza carpeta base.
+   - Abre archivo en escritura (sobrescribe todo).
+   - Ordena IDs y escribe cada evento.
+   - Retorna ruta final de guardado.
+
+7. `list_events()`
+   - Retorna lista de eventos ordenados por ID.
+
+8. `get_event(event_id)`
+   - Retorna el evento por ID o `None` si no existe.
+
+9. `find_duplicate_schedule(dow, time_text, ignore_event_id=None)`
+   - Normaliza la hora recibida.
+   - Busca evento con mismo día+hora.
+   - Puede ignorar un ID (útil al actualizar).
+   - Retorna evento duplicado o `None`.
+
+10. `add_event(..., overwrite=False)`
+    - Construye `new_event` validado.
+    - Verifica duplicado de horario.
+    - Verifica si ID ya existe y si se permite sobrescritura.
+    - Guarda en memoria y luego en disco con `save()`.
+    - Retorna evento agregado.
+
+11. `update_event(...)`
+    - Llama a `add_event(..., overwrite=True)`.
+    - Es la vía oficial para modificar un evento existente.
+
+12. `delete_event(event_id)`
+    - Si el ID no existe retorna `None`.
+    - Si existe, elimina de memoria, guarda cambios y retorna el evento eliminado.
+
+
+6) Funcionamiento línea por línea (mapa guiado)
+------------------------------------------------
+Nota: En lugar de repetir literalmente cada línea de código, aquí se explica su efecto exacto por bloques,
+respetando el orden de ejecución del archivo.
+
+Bloque 1 (inicio / import seguro)
+- `try` importar `os`.
+- `except ImportError`: fija `os = None` para que el resto del módulo no falle en entornos mínimos.
+
+Bloque 2 (constantes)
+- Define `VALID_DAYS`.
+- Define `RTC_WEEKDAY_MAP` (mapa reservado para compatibilidad RTC).
+
+Bloque 3 (clase `RecipeTimerEvent`)
+- Define docstring de clase.
+- Define `__slots__` para ahorrar memoria.
+- Constructor:
+  - valida ID,
+  - valida día,
+  - normaliza hora,
+  - valida salidas.
+- `same_schedule`: comparación directa día+hora.
+- `write_to_file`: escritura de cada campo en formato INI simple.
+
+Bloque 4 (funciones utilitarias)
+- `validate_event_id`: int + rango 1..50.
+- `validate_dow`: limpieza y pertenencia a `VALID_DAYS`.
+- `normalize_time`: split por `:`, parseo numérico, validación de rangos, retorno `HH:MM:SS`.
+- `validate_output`: int y permitido 0/1.
+
+Bloque 5 (clase `RecipeTimerStore`)
+- Constructor configura rutas, estructura en memoria y carga inicial.
+- `_ensure_base_path` intenta crear carpeta de persistencia.
+- `load` interpreta el archivo:
+  - ignora líneas vacías,
+  - detecta secciones `[eventN]`,
+  - separa `clave=valor`,
+  - valida y guarda cada evento correcto,
+  - cierra archivo siempre (`finally`).
+- `_parse_section_id` obtiene N.
+- `_store_loaded_event` convierte dict -> objeto evento validado.
+- `save` escribe todos los eventos ordenados por ID.
+- `list_events` devuelve lista ordenada.
+- `get_event` recupera por clave.
+- `find_duplicate_schedule` evita reglas duplicadas de día/hora.
+- `add_event` aplica validación + reglas + persistencia.
+- `update_event` reutiliza `add_event` con sobrescritura.
+- `delete_event` elimina y persiste.
+
+
+7) Reglas de negocio implementadas
+----------------------------------
+1. No se permiten IDs fuera de 1..50.
+2. No se permiten días fuera del catálogo en español.
+3. Hora obligatoria en formato `HH:MM:SS` válido.
+4. Salidas solo binarias 0/1.
+5. No se permiten dos eventos en el mismo día y misma hora.
+6. No se sobrescribe un ID existente salvo `overwrite=True`.
+
+
+8) Errores esperados (ValueError)
+---------------------------------
+Mensajes típicos:
+- "El identificador del evento debe estar entre 1 y 50."
+- "El dia de la semana no es valido."
+- "La hora debe tener el formato HH:MM:SS."
+- "La hora debe estar entre 00 y 23."
+- "Los minutos deben estar entre 00 y 59."
+- "Los segundos deben estar entre 00 y 59."
+- "outX debe ser 0 o 1."
+- Error por duplicado de día/hora.
+- Error por ID ya existente sin overwrite.
+
+
+9) Recomendaciones de uso
+-------------------------
+- Encapsula llamadas `add_event/update_event` en manejo de excepciones en tu aplicación principal.
+- Antes de programar un evento, valida o normaliza entradas del usuario.
+- Usa `list_events()` para mostrar programación ordenada.
+- Si tu sistema reinicia, reinstancia `RecipeTimerStore`; `load()` recuperará lo guardado.
