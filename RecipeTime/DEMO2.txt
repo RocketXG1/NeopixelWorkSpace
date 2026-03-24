@@ -1,0 +1,49 @@
+DEMO2 - Ejemplo práctico con 5 eventos (prgRecipeTimer)
+======================================================
+
+Objetivo
+--------
+Crear una agenda con 5 eventos distintos, mostrar su almacenamiento,
+consultar un evento y actualizar uno existente.
+
+Código de ejemplo
+-----------------
+```python
+from prgRecipeTimer import RecipeTimerStore
+
+# Recomendación: en MicroPython usar la ruta por defecto /RecipeTime
+store = RecipeTimerStore(filename="recipe_timer.ini", base_path="/RecipeTime")
+
+# (Opcional) limpiar agenda previa para esta demo
+store.clear()
+
+# 1) Crear 5 eventos con datos diferentes
+store.add_event(1, "Lunes", "06:00:00", 1, 0, 1)
+store.add_event(2, "Martes", "07:15:00", 0, 1, 0)
+store.add_event(3, "Miércoles", "09:30:00", 1, 1, 0)
+store.add_event(4, "Jueves", "14:45:10", 0, 0, 1)
+store.add_event(5, "Viernes", "18:20:30", 1, 1, 1)
+
+# 2) Mostrar la lista ordenada de eventos
+print("Eventos guardados:")
+for ev in store.list_events():
+    print(ev.event_id, ev.dow, ev.time_text, ev.out1, ev.out2, ev.out3)
+
+# 3) Consultar un evento puntual
+evento_3 = store.get_event(3)
+if evento_3:
+    print("Evento 3 ->", evento_3.dow, evento_3.time_text)
+
+# 4) Actualizar un evento existente (ID 4)
+store.update_event(4, "Jueves", "15:00:00", 1, 0, 1)
+
+print("\nDespués de actualizar el evento 4:")
+for ev in store.list_events():
+    print(ev.event_id, ev.dow, ev.time_text, ev.out1, ev.out2, ev.out3)
+```
+
+Resultado esperado
+------------------
+- Se registran 5 eventos válidos con ID 1..5.
+- Todos se guardan en `recipe_timer.ini`.
+- El evento 4 queda actualizado a la hora `15:00:00`.

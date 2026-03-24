@@ -1,0 +1,47 @@
+EvenDuplicates - Control de eventos duplicados
+==============================================
+
+¿Para qué sirve?
+----------------
+Este comportamiento evita que existan dos eventos con el mismo día (`dow`)
+y la misma hora (`time_text`).
+
+Esto ayuda a:
+- Evitar conflictos lógicos (dos acciones distintas al mismo instante).
+- Mantener una agenda consistente y predecible.
+- Facilitar depuración y mantenimiento del archivo `recipe_timer.ini`.
+
+¿Cómo lo evita `prgRecipeTimer`?
+--------------------------------
+Cuando llamas a `add_event(...)`, el módulo:
+
+1. Valida y normaliza datos (`event_id`, día, hora y salidas).
+2. Busca si ya existe un evento con el mismo `dow + time_text`.
+3. Si encuentra coincidencia, lanza un `ValueError` y NO guarda el nuevo evento.
+
+Ejemplo práctico
+----------------
+```python
+from prgRecipeTimer import RecipeTimerStore
+
+store = RecipeTimerStore()
+
+store.add_event(10, "Sábado", "10:00:00", 1, 0, 0)
+
+try:
+    # Mismo día + misma hora que el evento 10
+    store.add_event(11, "Sábado", "10:00:00", 0, 1, 1)
+except ValueError as e:
+    print("Duplicado bloqueado:", e)
+```
+
+Resultado esperado
+------------------
+- El evento 10 se crea correctamente.
+- El evento 11 se rechaza por duplicado de horario.
+- La agenda conserva una sola regla para `Sábado 10:00:00`.
+
+Nota
+----
+Si deseas modificar el evento existente, usa `update_event(...)` con el mismo ID,
+en lugar de crear uno nuevo con otro ID pero misma fecha/hora.
