@@ -1,0 +1,152 @@
+Manual de uso - BackLightControl.PY
+===================================
+
+1) Propósito del programa
+-------------------------
+El archivo `BackLightControl.PY` define una clase llamada `BackLightControl` para controlar el brillo
+(backlight o luz de fondo) mediante PWM en MicroPython.
+
+Su propósito principal es:
+- Encender/apagar un backlight con porcentaje de brillo (0 a 100).
+- Ajustar brillo directamente a un valor fijo.
+- Hacer transiciones suaves de brillo (rampa) entre dos porcentajes en un tiempo total.
+- Liberar el recurso PWM cuando ya no se use.
+
+Se utiliza normalmente en placas como Raspberry Pi Pico, ESP32 o similares con soporte MicroPython
+para `machine.Pin` y `machine.PWM`.
+
+
+2) Métodos incluidos y descripción
+----------------------------------
+A continuación se describen todos los métodos de la clase `BackLightControl`.
+
+A) `__init__(self, pin, frequency=1000)`
+- Inicializa el control PWM sobre el pin indicado.
+- Configura la frecuencia PWM (por defecto 1000 Hz).
+- Inicializa el brillo interno en 0%.
+- Llama `set_percent(0)` para arrancar con backlight apagado.
+
+Parámetros:
+- `pin`: número de pin donde está conectado el transistor/driver del backlight.
+- `frequency`: frecuencia PWM en Hz.
+
+B) `set_percent(self, percent)`
+- Establece el brillo inmediato con un porcentaje.
+- Fuerza el valor al rango válido 0..100.
+- Convierte el porcentaje a `duty_u16` (0..65535).
+- Actualiza físicamente la señal PWM.
+
+Parámetros:
+- `percent`: entero o valor convertible a entero.
+
+Comportamiento importante:
+- Si mandas `-20`, lo ajusta a `0`.
+- Si mandas `130`, lo ajusta a `100`.
+
+C) `ramp_percent(self, step_percent, total_time_s, start_percent=0, end_percent=100)`
+- Realiza una transición gradual de brillo entre `start_percent` y `end_percent`.
+- Usa incrementos/decrementos de `step_percent`.
+- Distribuye el tiempo total (`total_time_s`) entre todos los pasos.
+
+Parámetros:
+- `step_percent`: tamaño del salto por paso (en porcentaje).
+- `total_time_s`: duración total de la rampa en segundos.
+- `start_percent`: brillo inicial.
+- `end_percent`: brillo final.
+
+Reglas internas:
+- `step_percent` se vuelve positivo con `abs()` y mínimo 1.
+- Se ajustan `start_percent` y `end_percent` a 0..100.
+- Si inicio y fin son iguales, aplica valor final y termina.
+- Detecta dirección automática (subida o bajada).
+- Si no hay pasos calculables, fija el valor final.
+- Al final siempre asegura el valor exacto en `end_percent`.
+
+D) `deinit(self)`
+- Libera/desinicializa el periférico PWM.
+- Debe usarse al terminar el programa para evitar dejar recursos abiertos.
+
+
+3) Funcionamiento detallado del archivo
+---------------------------------------
+A) Importaciones
+- `from machine import Pin, PWM`: importa control de pin y PWM.
+- `import time`: permite usar `sleep` durante rampas.
+
+B) Flujo de inicialización
+1. Se crea un objeto `PWM` con `PWM(Pin(pin))`.
+2. Se configura la frecuencia con `.freq(frequency)`.
+3. Se guarda `_percent=0`.
+4. Se invoca `set_percent(0)` para comenzar con salida apagada.
+
+C) Conversión porcentaje -> duty
+- El duty se calcula con:
+  `duty = int((percent / 100) * 65535)`
+
+Ejemplos:
+- 0%   -> 0
+- 50%  -> 32767 aprox.
+- 100% -> 65535
+
+D) Lógica de rampa
+1. Valida y normaliza parámetros.
+2. Determina si rampa sube o baja.
+3. Calcula número de pasos: `(end - start) / step`.
+4. Divide tiempo total entre pasos para obtener retardo por paso.
+5. Repite:
+   - aplica porcentaje actual,
+   - espera `delay_s`,
+   - avanza al siguiente porcentaje.
+6. Ajusta finalmente el porcentaje exacto final.
+
+
+4) Ejemplo completo de uso (recomendado)
+-----------------------------------------
+Código ejemplo para un backlight en pin 15:
+
+```python
+from BackLightControl import BackLightControl
+import time
+
+# 1) Instanciar el controlador PWM
+backlight = BackLightControl(pin=15, frequency=1000)
+
+# 2) Encender al 30%
+backlight.set_percent(30)
+time.sleep(2)
+
+# 3) Subir suavemente de 30% a 90% en 4 segundos, de 5 en 5
+backlight.ramp_percent(step_percent=5, total_time_s=4, start_percent=30, end_percent=90)
+time.sleep(1)
+
+# 4) Bajar suavemente de 90% a 10% en 3 segundos
+backlight.ramp_percent(step_percent=10, total_time_s=3, start_percent=90, end_percent=10)
+time.sleep(1)
+
+# 5) Apagar
+backlight.set_percent(0)
+
+# 6) Liberar PWM al terminar
+backlight.deinit()
+```
+
+
+5) Cómo usar el código en tu proyecto (paso a paso)
+----------------------------------------------------
+1. Copia `BackLightControl.PY` en la placa o en tu carpeta de proyecto MicroPython.
+2. Verifica el pin físico donde está conectado el circuito del backlight.
+3. Importa la clase:
+   `from BackLightControl import BackLightControl`
+4. Crea la instancia con el pin correcto.
+5. Usa `set_percent(...)` para brillo fijo.
+6. Usa `ramp_percent(...)` para transiciones suaves.
+7. Cuando finalices, llama `deinit()`.
+
+
+6) Recomendaciones prácticas
+----------------------------
+- Si el backlight parpadea, prueba una frecuencia PWM distinta (ej. 500, 1000, 5000 Hz).
+- Si la transición se ve brusca, reduce `step_percent` o aumenta `total_time_s`.
+- Si el hardware usa transistor/MOSFET, revisa polaridad lógica y conexión a GND.
+- En algunos drivers, el brillo puede invertirse (0=encendido, 100=apagado). Ajusta lógica si aplica.
+
