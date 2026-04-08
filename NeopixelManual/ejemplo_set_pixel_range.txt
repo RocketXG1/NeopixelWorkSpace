@@ -1,0 +1,46 @@
+Ejemplo de uso de set_pixel_range
+=================================
+
+Este método permite colorear un rango de LEDs desde un pixel X hasta un pixel Y,
+incluyendo ambos extremos.
+
+1) Crear la tira NeoPixel
+-------------------------
+from neopixel import Neopixel
+
+NUM_LEDS = 30
+PIN = 0
+SM = 0
+
+np = Neopixel(NUM_LEDS, SM, PIN, "RGB")
+
+2) Pintar del pixel 5 al 12 en rojo
+-----------------------------------
+np.set_pixel_range(5, 12, (255, 0, 0))
+np.show()
+
+3) También funciona si el rango está invertido
+----------------------------------------------
+# Pintará del 12 al 5 (internamente lo ordena)
+np.set_pixel_range(12, 5, (0, 255, 0))
+np.show()
+
+4) Ejemplo con color azul en otro rango
+---------------------------------------
+np.set_pixel_range(0, 4, (0, 0, 255))
+np.show()
+
+Notas
+-----
+- El color se pasa como tupla RGB: (rojo, verde, azul).
+- Si usas una tira RGBW y tu configuración lo soporta, puedes usar (r, g, b, w).
+- Llama a np.show() después de asignar los colores para ver el cambio en la tira.
+
+5) Cambio gradual por tiempo total
+----------------------------------
+# Cambia del pixel 3 al 15 en color morado durante 6 segundos en total.
+# El tiempo se reparte entre la cantidad de posiciones detectadas.
+np.set_pixel_range_gradual(3, 15, (150, 0, 150), 6)
+
+# También funciona de forma inversa (15 a 3) con el mismo concepto.
+np.set_pixel_range_gradual(15, 3, (0, 150, 150), 6)

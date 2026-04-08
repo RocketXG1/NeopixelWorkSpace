@@ -102,18 +102,62 @@ class Neopixel:
         for i in range(pixel1, pixel2 + 1):
             self.set_pixel(i, rgb_w)
 
+    # Set a range of pixels from "pixel_start" to "pixel_end" (inclusive) to a specific color.
+    # It supports both directions (start > end) and keeps values inside the strip limits.
+    # Function accepts (r, g, b) / (r, g, b, w) tuple
+    def set_pixel_range(self, pixel_start, pixel_end, rgb_w):
+        if self.num_leds <= 0:
+            return
+
+        start = max(0, min(pixel_start, pixel_end))
+        end = min(self.num_leds - 1, max(pixel_start, pixel_end))
+
+        for i in range(start, end + 1):
+            self.set_pixel(i, rgb_w)
+
+    # Gradually sets pixels from "pixel_start" to "pixel_end" (inclusive) to one color.
+    # The total animation duration is distributed across detected positions in the range.
+    # Function accepts (r, g, b) / (r, g, b, w) tuple and total_time in seconds.
+    def set_pixel_range_gradual(self, pixel_start, pixel_end, rgb_w, total_time):
+        if self.num_leds <= 0:
+            return
+
+        start = max(0, min(self.num_leds - 1, pixel_start))
+        end = max(0, min(self.num_leds - 1, pixel_end))
+
+        step = 1 if end >= start else -1
+        count = abs(end - start) + 1
+        if count <= 0:
+            return
+
+        if total_time < 0:
+            total_time = 0
+        delay_per_pixel = total_time / count
+
+        for i in range(start, end + step, step):
+            self.set_pixel(i, rgb_w)
+            self.show()
+            if delay_per_pixel > 0:
+                time.sleep(delay_per_pixel)
+
     # Set red, green and blue value of pixel on position <pixel_num>
     # Function accepts (r, g, b) / (r, g, b, w) tuple
     def set_pixel(self, pixel_num, rgb_w):
-        pos = self.shift
+        if pixel_num < 0 or pixel_num >= self.num_leds:
+            return
+        if len(rgb_w) < 3:
+            return
 
-        red = round(rgb_w[0] * (self.brightness() / 255))
-        green = round(rgb_w[1] * (self.brightness() / 255))
-        blue = round(rgb_w[2] * (self.brightness() / 255))
+        pos = self.shift
+        scale = self.brightnessvalue / 255
+
+        red = min(255, max(0, round(rgb_w[0] * scale)))
+        green = min(255, max(0, round(rgb_w[1] * scale)))
+        blue = min(255, max(0, round(rgb_w[2] * scale)))
         white = 0
         # if it's (r, g, b, w)
         if len(rgb_w) == 4 and 'W' in self.mode:
-            white = round(rgb_w[3] * (self.brightness() / 255))
+            white = min(255, max(0, round(rgb_w[3] * scale)))
 
         self.pixels[pixel_num] = white << pos['W'] | blue << pos['B'] | red << pos['R'] | green << pos['G']
 
@@ -231,4 +275,3 @@ class Neopixel:
                 self.set_pixel(right, color)
             self.show()
             time.sleep(FinishDelay)
-
