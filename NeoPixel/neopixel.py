@@ -115,6 +115,39 @@ class Neopixel:
         for i in range(start, end + 1):
             self.set_pixel(i, rgb_w)
 
+    # Animate a gradual color change from an initial position to a final position.
+    # It can run in both directions (start -> end or end -> start) and distributes
+    # the total animation time over all pixel updates.
+    # Function accepts (r, g, b) / (r, g, b, w) tuple
+    def animate_color_range(self, pixel_start, pixel_end, rgb_w, total_time, reverse=False):
+        if self.num_leds <= 0:
+            return
+        if total_time is None or total_time < 0:
+            total_time = 0
+
+        start = max(0, min(pixel_start, pixel_end))
+        end = min(self.num_leds - 1, max(pixel_start, pixel_end))
+        if start > end:
+            return
+
+        steps = end - start + 1
+        if steps <= 0:
+            return
+
+        delay_per_step = total_time / steps if steps > 0 else 0
+        effective_sleep = max(0, delay_per_step - self.delay)
+
+        if reverse:
+            iterator = range(end, start - 1, -1)
+        else:
+            iterator = range(start, end + 1)
+
+        for i in iterator:
+            self.set_pixel(i, rgb_w)
+            self.show()
+            if effective_sleep > 0:
+                time.sleep(effective_sleep)
+
     # Set red, green and blue value of pixel on position <pixel_num>
     # Function accepts (r, g, b) / (r, g, b, w) tuple
     def set_pixel(self, pixel_num, rgb_w):
