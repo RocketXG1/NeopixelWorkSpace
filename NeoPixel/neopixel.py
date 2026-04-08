@@ -102,6 +102,19 @@ class Neopixel:
         for i in range(pixel1, pixel2 + 1):
             self.set_pixel(i, rgb_w)
 
+    # Set a range of pixels from "pixel_start" to "pixel_end" (inclusive) to a specific color.
+    # It supports both directions (start > end) and keeps values inside the strip limits.
+    # Function accepts (r, g, b) / (r, g, b, w) tuple
+    def set_pixel_range(self, pixel_start, pixel_end, rgb_w):
+        if self.num_leds <= 0:
+            return
+
+        start = max(0, min(pixel_start, pixel_end))
+        end = min(self.num_leds - 1, max(pixel_start, pixel_end))
+
+        for i in range(start, end + 1):
+            self.set_pixel(i, rgb_w)
+
     # Set red, green and blue value of pixel on position <pixel_num>
     # Function accepts (r, g, b) / (r, g, b, w) tuple
     def set_pixel(self, pixel_num, rgb_w):
@@ -231,4 +244,3 @@ class Neopixel:
                 self.set_pixel(right, color)
             self.show()
             time.sleep(FinishDelay)
-
