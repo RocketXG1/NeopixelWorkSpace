@@ -18,7 +18,7 @@ blue = (0, 0, 255)
 
 orange = (255, 50, 0)
 yellow = (255, 150, 0)
-indigo = (100, 0, 90)
+indigo = (0, 255, 255)
 violet = (200, 0, 100)
 wite= (120,120,120)
 colors_rgb = [red, orange, yellow, green, blue, indigo, violet]
@@ -41,20 +41,24 @@ Ready.fill(red)
 Ready.show()
 print("Ready")
 
-iStartDelay=0.03
-iFinishDelay=0.06
+iStartDelay=0.035
+iFinishDelay=0.045
 strip.brightness(255)
 strip.fill(indigo)
 strip.show() 
 print("Ready2")
 strip.circular_bounce_fill(wite,iStartDelay,iFinishDelay,255)
+ #strip.set_pixel_range(25,34,indigo)    
+strip.animate_color_range(25,34,red,0.5,False)
+strip.animate_color_range(24,1,indigo,0.5,True)
+strip.animate_color_range(0,35,yellow,0.5,False)
+strip.show()
 while True:
     Ready.brightness(255)
     Ready.fill(green)
     Ready.show()
 
-    strip.set_pixel_line(20,5,red,colors_rgbw[0])
-    strip.show()
+   
     
     iStartDelay=0.03
     iFinishDelay=0.06     
