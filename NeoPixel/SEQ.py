@@ -4,8 +4,8 @@
 import time
 from NeoPixel.neopixel import Neopixel
 
-numpix = 16
-strip = Neopixel(numpix, 0, 14, "GRB")
+numpix = 32
+strip = Neopixel(numpix, 0, 29, "RGB")
 # strip = Neopixel(numpsix, 0, 0, "GRBW")
 
 red = (255, 0, 0)
@@ -28,7 +28,7 @@ colors = colors_rgbw
 
 step = round(numpix / len(colors))
 current_pixel = 0
-strip.brightness(5)
+strip.brightness(255)
 
 for color1, color2 in zip(colors, colors[1:]):
     strip.set_pixel_line_gradient(current_pixel, current_pixel + step, color1, color2)
@@ -37,8 +37,8 @@ for color1, color2 in zip(colors, colors[1:]):
 strip.set_pixel_line_gradient(current_pixel, numpix - 1, violet, red)
 print("Ready")
 
-iStartDelay=0.06
-iFinishDelay=0.05
+iStartDelay=0.03
+iFinishDelay=0.06
 while True:
     #strip.rotate_right(1)
     #strip.fill(colors[2])
@@ -48,9 +48,9 @@ while True:
     strip.circular_bounce_fill(yellow,iStartDelay,iFinishDelay,255)
     
     #for Step in colors:
-        #strip.set_pixel(0,Step)
-        #time.sleep(0.1)
-        #strip.show()
+     #   strip.set_pixel(0,Step)
+      #  time.sleep(0.1)
+      #  strip.show()
         
     
     

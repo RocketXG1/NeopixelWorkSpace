@@ -2,7 +2,7 @@ from machine import Pin, PWM
 import time
 
 
-class BackLightControl:
+class BlackLightControl:
     def __init__(self, pin, frequency=1000):
         self._pwm = PWM(Pin(pin))
         self._pwm.freq(frequency)
