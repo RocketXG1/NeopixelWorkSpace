@@ -2,12 +2,16 @@
 # simplify working with gradients
 
 import time
+from machine import Pin
 from NeoPixel.neopixel import Neopixel
+
 #from BlackLight.BlackLightControl import BlackLightControl
 
 numpix = 36
 strip = Neopixel(numpix, 0, 29, "RGB")
 Ready = Neopixel(1, 1, 16, "GRB")
+
+bSensor=Pin(27,Pin.IN)
 
 #BlackLight=BlackLightControl(28,1000)
 
@@ -18,9 +22,10 @@ blue = (0, 0, 255)
 
 orange = (255, 50, 0)
 yellow = (255, 150, 0)
-indigo = (0, 255, 255)
+cian = (0, 255, 255)
 violet = (200, 0, 100)
 wite= (120,120,120)
+Off=(0,0,0)
 colors_rgb = [red, orange, yellow, green, blue, indigo, violet]
 
 # same colors as normaln rgb, just 0 added at the end
@@ -33,35 +38,54 @@ colors = colors_rgbw
 
 
 
-iStartDelay=0.03
-iFinishDelay=0.06
+
 
 Ready.brightness(255)
 Ready.fill(red)
 Ready.show()
 print("Ready")
 
-iStartDelay=0.035
-iFinishDelay=0.045
+iStartDelay=0.04
+iFinishDelay=0.06
 strip.brightness(255)
 strip.fill(indigo)
 strip.show() 
 print("Ready2")
-strip.circular_bounce_fill(wite,iStartDelay,iFinishDelay,255)
- #strip.set_pixel_range(25,34,indigo)    
-strip.animate_color_range(25,34,red,0.5,False)
-strip.animate_color_range(24,1,indigo,0.5,True)
-strip.animate_color_range(0,35,yellow,0.5,False)
-strip.show()
-while True:
-    Ready.brightness(255)
-    Ready.fill(green)
-    Ready.show()
 
-   
+iStartDelay=0.05
+iFinishDelay=0.06
+
+strip.circular_bounce_fill(wite,iStartDelay,iFinishDelay,150)
+strip.animate_color_range(25,34,red,0.5,False)
+strip.animate_color_range(0,35,Off,1,True) 
+
+def MonStart():
+    strip.circular_bounce_fill(wite,iStartDelay,iFinishDelay,150)
+    strip.animate_color_range(25,34,red,0.5,False)    
+    strip.animate_color_range(0,24,yellow,1.5,False)
+
+def MonSleep():
+    strip.animate_color_range(0,35,Off,1,True) 
+
+
+Ready.brightness(200)
+while True:       
+
+    if bSensor.value():
+        Ready.fill(cian)
+        Ready.show()
+        MonStart()
+        
+    else:        
+        Ready.fill(green)
+        Ready.show()
+        MonSleep()
+
     
-    iStartDelay=0.03
-    iFinishDelay=0.06     
+        
+    
+    
+   
     
     
     
