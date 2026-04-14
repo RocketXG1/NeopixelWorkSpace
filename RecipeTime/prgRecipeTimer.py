@@ -14,16 +14,7 @@ VALID_DAYS = (
     "Domingo",
 )
 
-RTC_WEEKDAY_MAP = (
-    "Lunes",
-    "Martes",
-    "Miércoles",
-    "Jueves",
-    "Viernes",
-    "Sábado",
-    "Domingo",
-)
-
+VALID_DOW_CHARS = ("0", "1")
 
 class RecipeTimerEvent:
     """Evento compacto para MicroPython."""
@@ -39,7 +30,11 @@ class RecipeTimerEvent:
         self.out3 = validate_output(out3, "out3")
 
     def same_schedule(self, dow, time_text):
-        return self.dow == dow and self.time_text == time_text
+        normalized_dow = validate_dow(dow)
+        return (
+            self.time_text == time_text
+            and has_shared_days(self.dow, normalized_dow)
+        )
 
     def write_to_file(self, file):
         file.write("[event")
@@ -71,10 +66,63 @@ def validate_event_id(event_id):
 
 
 def validate_dow(dow):
-    day = str(dow).strip()
-    if day not in VALID_DAYS:
-        raise ValueError("El dia de la semana no es valido.")
-    return day
+    day_text = str(dow).strip()
+    if day_text in VALID_DAYS:
+        return day_name_to_mask(day_text)
+    return validate_dow_mask(day_text)
+
+
+def day_name_to_mask(day_name):
+    index = VALID_DAYS.index(day_name)
+    chars = ["0", "0", "0", "0", "0", "0", "0"]
+    chars[index] = "1"
+    return "".join(chars)
+
+
+def validate_dow_mask(dow_mask):
+    if len(dow_mask) != 7:
+        raise ValueError("El DoW debe tener 7 posiciones (formato 0000000).")
+
+    enabled_days = 0
+    for char in dow_mask:
+        if char not in VALID_DOW_CHARS:
+            raise ValueError("El DoW solo permite 0 o 1.")
+        if char == "1":
+            enabled_days += 1
+
+    if enabled_days == 0:
+        raise ValueError("El DoW no puede tener todos los dias en 0.")
+    if enabled_days > 7:
+        raise ValueError("El DoW debe tener entre 1 y 7 dias activos.")
+
+    return dow_mask
+
+
+def has_shared_days(dow_a, dow_b):
+    index = 0
+    while index < 7:
+        if dow_a[index] == "1" and dow_b[index] == "1":
+            return True
+        index += 1
+    return False
+
+
+def weekday_to_mask(weekday):
+    if weekday < 0 or weekday > 6:
+        raise ValueError("El valor de dia de la semana del RTC no es valido.")
+    chars = ["0", "0", "0", "0", "0", "0", "0"]
+    chars[weekday] = "1"
+    return "".join(chars)
+
+
+def format_dow_for_display(dow):
+    days = []
+    index = 0
+    while index < 7:
+        if dow[index] == "1":
+            days.append(VALID_DAYS[index])
+        index += 1
+    return ",".join(days)
 
 
 
@@ -215,12 +263,13 @@ class RecipeTimerStore:
         return self.events.get(int(event_id))
 
     def find_duplicate_schedule(self, dow, time_text, ignore_event_id=None):
+        normalized_dow = validate_dow(dow)
         normalized_time = normalize_time(time_text)
         for event_id in self.events:
             if ignore_event_id is not None and event_id == ignore_event_id:
                 continue
             event = self.events[event_id]
-            if event.same_schedule(dow, normalized_time):
+            if event.same_schedule(normalized_dow, normalized_time):
                 return event
         return None
 
@@ -232,8 +281,12 @@ class RecipeTimerStore:
         )
         if duplicate is not None:
             raise ValueError(
-                "Ya existe un evento con %s a las %s (evento %s)."
-                % (duplicate.dow, duplicate.time_text, duplicate.event_id)
+                "Ya existe un evento en [%s] a las %s (evento %s)."
+                % (
+                    format_dow_for_display(duplicate.dow),
+                    duplicate.time_text,
+                    duplicate.event_id,
+                )
             )
 
         if (new_event.event_id in self.events) and (not overwrite):
@@ -280,9 +333,7 @@ class RecipeTimerController:
     def get_current_schedule(self):
         rtc_tuple = self.rtc.datetime()
         weekday = rtc_tuple[3]
-        if weekday < 0 or weekday > 6:
-            raise ValueError("El valor de dia de la semana del RTC no es valido.")
-        return RTC_WEEKDAY_MAP[weekday], "%02d:%02d:%02d" % (
+        return weekday_to_mask(weekday), "%02d:%02d:%02d" % (
             rtc_tuple[4],
             rtc_tuple[5],
             rtc_tuple[6],

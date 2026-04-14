@@ -1,0 +1,156 @@
+Guía de DoW por máscara (prgRecipeTimer.py)
+===========================================
+
+1) ¿Qué se agregó?
+------------------
+En `prgRecipeTimer.py` se agregó soporte para que el campo `dow` acepte una
+máscara binaria de 7 posiciones en lugar de un solo día.
+
+Funciones agregadas/ajustadas y su función:
+
+- `validate_dow(dow)`
+  - Punto central de validación de DoW.
+  - Acepta dos formatos:
+    1) Nombre de día (`Lunes`, `Martes`, ...)
+    2) Máscara binaria de 7 chars (`0`/`1`), por ejemplo `0100100`
+  - Si llega nombre de día, lo convierte a máscara con `day_name_to_mask`.
+
+- `day_name_to_mask(day_name)`
+  - Convierte un día único a máscara de 7 posiciones.
+  - Ejemplo: `Lunes` -> `1000000`.
+
+- `validate_dow_mask(dow_mask)`
+  - Verifica que:
+    - La longitud sea exactamente 7.
+    - Solo existan caracteres `0` o `1`.
+    - Haya al menos 1 día activo (y hasta 7).
+  - Regla explícita nueva:
+    - `0000000` es inválido y lanza error (`todos los días en 0`).
+
+- `has_shared_days(dow_a, dow_b)`
+  - Determina si dos máscaras comparten al menos un día activo.
+  - Se usa para detectar choque/duplicado de agenda por traslape de días.
+
+- `weekday_to_mask(weekday)`
+  - Convierte el índice de día del RTC (0..6) a máscara de 7 posiciones.
+  - Permite que el controlador compare el día actual contra eventos con DoW en máscara.
+
+- `format_dow_for_display(dow)`
+  - Convierte máscara a texto legible para mensajes de error.
+  - Ejemplo: `1010000` -> `Lunes,Miércoles`.
+
+- `RecipeTimerEvent.same_schedule(dow, time_text)`
+  - Antes comparaba `dow` exacto + hora exacta.
+  - Ahora compara:
+    - misma hora
+    - y traslape de al menos un día (`has_shared_days`).
+
+- `RecipeTimerStore.find_duplicate_schedule(...)`
+  - Normaliza DoW y hora antes de buscar duplicado.
+
+- `RecipeTimerStore.add_event(...)`
+  - Mensaje de duplicado actualizado para mostrar días legibles.
+
+- `RecipeTimerController.get_current_schedule()`
+  - Ahora usa `weekday_to_mask` para devolver día actual en formato máscara.
+
+
+2) Relación de posiciones de la máscara con días
+------------------------------------------------
+El orden de posiciones está ligado a `VALID_DAYS`:
+
+Posición:  0      1       2          3       4        5       6
+Día:      Lunes  Martes  Miércoles  Jueves  Viernes  Sábado  Domingo
+
+Ejemplos rápidos:
+- `1000000` -> solo Lunes
+- `0000100` -> solo Viernes
+- `0000001` -> solo Domingo
+- `1111111` -> todos los días
+- `1010101` -> Lunes, Miércoles, Viernes y Domingo
+
+
+2.1) ¿Cómo se transforma texto a número y cómo se maneja?
+---------------------------------------------------------
+El flujo de transformación que usa el código es:
+
+1. Entrada de `dow` como texto:
+   - Caso A: nombre de día (`\"Lunes\"`, `\"Martes\"`, ...).
+   - Caso B: máscara textual (`\"0100100\"`).
+
+2. Normalización interna:
+   - Si llega nombre de día, `day_name_to_mask` busca su índice en `VALID_DAYS`
+     y genera una máscara de 7 posiciones con un único `1`.
+     - Ejemplo: `\"Miércoles\"` (índice 2) -> `\"0010000\"`.
+   - Si llega máscara, `validate_dow_mask` valida largo, contenido `0/1`
+     y que no sea `\"0000000\"`.
+
+3. Comparación de duplicados:
+   - La hora se normaliza a `HH:MM:SS`.
+   - `has_shared_days` revisa posición por posición:
+     - Si ambas máscaras tienen `1` en la misma posición, hay traslape.
+
+4. Conversión desde RTC (número) a máscara:
+   - `weekday_to_mask` toma el número del RTC (`0..6`) y lo transforma
+     a máscara de 7 posiciones para comparar contra `dow` de eventos.
+
+
+3) Ejemplo de uso (duplicado, overwrite y update)
+--------------------------------------------------
+Ejemplo ejecutable en Python/MicroPython (adaptar rutas según entorno):
+
+```python
+from RecipeTime.prgRecipeTimer import RecipeTimerStore
+
+store = RecipeTimerStore(filename="ejemplo_timer.ini", base_path="/tmp/recipe_timer_demo")
+store.clear()
+
+# 1) Alta de evento base: Lunes 08:00:00
+store.add_event(
+    event_id=1,
+    dow="1000000",      # Lunes
+    time_text="08:00:00",
+    out1=1, out2=0, out3=0
+)
+
+# 2) Prueba de duplicado por traslape de día + misma hora
+#    1100000 = Lunes y Martes -> traslapa con evento 1 en Lunes.
+try:
+    store.add_event(
+        event_id=2,
+        dow="1100000",  # Lunes/Martes
+        time_text="08:00:00",
+        out1=0, out2=1, out3=0
+    )
+except ValueError as exc:
+    print("Duplicado detectado correctamente:", exc)
+
+# 3) Overwrite: reutilizar un ID existente (event_id=1)
+#    Sin overwrite fallaría por "evento ya existe".
+store.add_event(
+    event_id=1,
+    dow="0100000",      # Martes
+    time_text="09:00:00",
+    out1=1, out2=1, out3=0,
+    overwrite=True
+)
+print("Evento 1 sobreescrito.")
+
+# 4) Update: internamente llama a add_event(..., overwrite=True)
+store.update_event(
+    event_id=1,
+    dow="0101000",      # Martes/Jueves
+    time_text="09:30:00",
+    out1=0, out2=1, out3=1
+)
+print("Evento 1 actualizado con update_event().")
+
+# 5) Ver resultado final
+for ev in store.list_events():
+    print(ev.event_id, ev.dow, ev.time_text, ev.out1, ev.out2, ev.out3)
+```
+
+Notas:
+- Si deseas evitar choques, usa horas distintas o máscaras sin días compartidos.
+- `update_event` requiere que el ID exista lógicamente en tu flujo; si no existe,
+  terminará insertándolo como nuevo porque usa la misma ruta de `add_event` con overwrite.
