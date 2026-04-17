@@ -69,6 +69,8 @@ def validate_dow(dow):
     day_text = str(dow).strip()
     if day_text in VALID_DAYS:
         return day_name_to_mask(day_text)
+    if "," in day_text:
+        return day_names_to_mask(day_text)
     return validate_dow_mask(day_text)
 
 
@@ -77,6 +79,20 @@ def day_name_to_mask(day_name):
     chars = ["0", "0", "0", "0", "0", "0", "0"]
     chars[index] = "1"
     return "".join(chars)
+
+
+def day_names_to_mask(day_names_text):
+    chars = ["0", "0", "0", "0", "0", "0", "0"]
+    names = day_names_text.split(",")
+    for name in names:
+        clean_name = name.strip()
+        if clean_name not in VALID_DAYS:
+            raise ValueError(
+                "Dia invalido '%s'. Use nombres validos: %s."
+                % (clean_name, ",".join(VALID_DAYS))
+            )
+        chars[VALID_DAYS.index(clean_name)] = "1"
+    return validate_dow_mask("".join(chars))
 
 
 def validate_dow_mask(dow_mask):
