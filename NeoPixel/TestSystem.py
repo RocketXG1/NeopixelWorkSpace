@@ -4,8 +4,7 @@
 import time
 from machine import Pin
 from NeoPixel.neopixel import Neopixel
-
-#from BlackLight.BlackLightControl import BlackLightControl
+from NeoPixel.BlackLight.BlackLightControl import BlackLightControl
 
 numpix = 36
 strip = Neopixel(numpix, 0, 29, "RGB")
@@ -13,7 +12,7 @@ Ready = Neopixel(1, 1, 16, "GRB")
 
 bSensor=Pin(27,Pin.IN)
 
-#BlackLight=BlackLightControl(28,1000)
+BlackLight=BlackLightControl(28,1000)
 
 
 red = (255,0,0)
@@ -26,7 +25,7 @@ cian = (0, 255, 255)
 violet = (200, 0, 100)
 wite= (120,120,120)
 Off=(0,0,0)
-colors_rgb = [red, orange, yellow, green, blue, indigo, violet]
+colors_rgb = [red, orange, yellow, green, blue, cian, violet]
 
 # same colors as normaln rgb, just 0 added at the end
 colors_rgbw = [color+tuple([0]) for color in colors_rgb]
@@ -48,7 +47,7 @@ print("Ready")
 iStartDelay=0.04
 iFinishDelay=0.06
 strip.brightness(255)
-strip.fill(indigo)
+strip.fill(cian)
 strip.show() 
 print("Ready2")
 
@@ -69,17 +68,18 @@ def MonSleep():
 
 
 Ready.brightness(200)
-while True:       
+while True:  
 
-    if bSensor.value():
-        Ready.fill(cian)
-        Ready.show()
-        MonStart()
+    BlackLight.set_percent(50)     
+
+   # if bSensor.value():
+    #    Ready.fill(cian)
+     #   MonStart()
         
-    else:        
-        Ready.fill(green)
-        Ready.show()
-        MonSleep()
+    #else:        
+     #   Ready.fill(green)
+      #  Ready.show()
+       # MonSleep()
 
     
         
