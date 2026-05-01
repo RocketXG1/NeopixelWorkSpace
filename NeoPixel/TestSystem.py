@@ -2,6 +2,7 @@
 # simplify working with gradients
 
 import time
+import _thread
 from machine import Pin
 from NeoPixel.neopixel import Neopixel
 from NeoPixel.BlackLight.BlackLightControl import BlackLightControl
@@ -13,6 +14,7 @@ Ready = Neopixel(1, 1, 16, "GRB")
 bSensor=Pin(27,Pin.IN)
 
 BlackLight=BlackLightControl(28,1000)
+BlackLight.set_percent(100)
 
 
 red = (255,0,0)
@@ -46,7 +48,7 @@ print("Ready")
 
 iStartDelay=0.04
 iFinishDelay=0.06
-strip.brightness(255)
+strip.brightness(50)
 strip.fill(cian)
 strip.show() 
 print("Ready2")
@@ -59,19 +61,30 @@ strip.animate_color_range(25,34,red,0.5,False)
 strip.animate_color_range(0,35,Off,1,True) 
 
 def MonStart():
-    strip.circular_bounce_fill(wite,iStartDelay,iFinishDelay,150)
-    strip.animate_color_range(25,34,red,0.5,False)    
+    strip.circular_bounce_fill(wite,iStartDelay,iFinishDelay,20)
+    strip.animate_color_range(25,34,blue,0.5,False)    
     strip.animate_color_range(0,24,yellow,1.5,False)
 
 def MonSleep():
+    strip.animate_color_range(25,34,wite,0.5,True)
     strip.animate_color_range(0,35,Off,1,True) 
 
+def _NeoPixelTask():
+    while True:
+        MonStart()
+        MonSleep
 
-Ready.brightness(200)
+#_thread.start_new_thread(_NeoPixelTask,())
+
+Ready.brightness(50)
 while True:  
+    MonStart()      
+    BlackLight.ramp_percent(1,0.5,100,90)
+    MonSleep() 
+    BlackLight.ramp_percent(1,0.5,90,100)
+    
 
-    BlackLight.set_percent(50)     
-
+  
    # if bSensor.value():
     #    Ready.fill(cian)
      #   MonStart()
