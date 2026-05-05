@@ -1,0 +1,89 @@
+Cascade Sections - Metodo cascade_sections(...)
+================================================
+
+Archivo origen del metodo:
+- NeoPixel/neopixel.py
+- Clase: Neopixel
+- Metodo: cascade_sections(...)
+
+Descripcion general
+-------------------
+El metodo `cascade_sections` ejecuta una animacion progresiva por secciones sobre una tira NeoPixel.
+Cada seccion avanza LED por LED y puede activar la siguiente seccion cuando alcanza un punto de
+disparo (trigger) relativo dentro de su propia seccion.
+
+Esto crea un efecto de cascada o desfase:
+- La seccion 1 inicia primero.
+- Cuando la seccion 1 alcanza su trigger, inicia la seccion 2.
+- Cuando la seccion 2 alcanza su trigger, inicia la seccion 3.
+- Las secciones anteriores siguen avanzando hasta terminar.
+
+Caracteristicas tecnicas
+------------------------
+1) Un solo ciclo principal de animacion.
+2) Temporizacion con `time.ticks_ms()` (sin sleeps largos bloqueantes).
+3) Una sola llamada a `self.show()` por actualizacion global de la tira.
+4) Soporta modo con rastro (trail=True) o punto movil (trail=False).
+5) Soporta ejecucion unica (repeat=False) o repetitiva (repeat=True).
+6) Compatible con RGB y RGBW segun el modo de la instancia.
+
+Parametros
+----------
+- data_pin (int): pin de datos.
+- total_leds (int): cantidad total de LEDs de la tira.
+- sections_count (int): cantidad de secciones.
+- leds_per_section (int | list/tuple):
+  * int: mismo tamano para todas las secciones.
+  * list/tuple: tamano por seccion.
+- section_colors (list/tuple): color por seccion (RGB o RGBW).
+- step_ms (int): velocidad de avance en milisegundos por paso.
+- trigger_position (int | list/tuple):
+  * int: mismo trigger para todas las transiciones.
+  * list/tuple: trigger por transicion:
+    - indice 0: trigger de seccion 1 -> seccion 2
+    - indice 1: trigger de seccion 2 -> seccion 3
+    - etc.
+- trail (bool): True deja rastro encendido, False solo punto movil.
+- repeat (bool): True repite ciclo, False solo una ejecucion.
+- state_machine (int): indice de state machine PIO.
+
+Ejemplo solicitado
+------------------
+Escenario:
+- 3 secciones de 100 LEDs cada una (total 300 LEDs).
+- Seccion 1: amarillo.
+- Seccion 2: amarillo.
+- Seccion 3: purpura.
+- La seccion 2 inicia cuando la seccion 1 llega al LED 50.
+- La seccion 3 inicia cuando la seccion 2 llega al LED 40.
+
+Codigo de ejemplo (MicroPython):
+
+from neopixel import Neopixel
+
+# Instancia base (puedes ajustar state_machine/pin segun hardware)
+np = Neopixel(num_leds=300, state_machine=0, pin=0, mode="RGB")
+
+# Colores RGB
+amarillo = (255, 220, 0)
+purpura  = (160, 0, 200)
+
+np.cascade_sections(
+    data_pin=0,
+    total_leds=300,
+    sections_count=3,
+    leds_per_section=[100, 100, 100],
+    section_colors=[amarillo, amarillo, purpura],
+    step_ms=30,
+    trigger_position=[50, 40],   # S1->S2 en 50, S2->S3 en 40
+    trail=True,
+    repeat=True,
+    state_machine=0
+)
+
+Notas practicas
+---------------
+- Si `trigger_position` es mayor al tamano de una seccion, la siguiente seccion iniciara al final
+  (cuando ya no queden mas pasos posibles de avance para esa seccion).
+- Si usas `trail=False`, se apaga el LED anterior de cada seccion para mostrar solo el punto movil.
+- Si deseas una sola corrida completa, usa `repeat=False`.

@@ -283,3 +283,128 @@ class Neopixel:
                 self.set_pixel(right, color)
             self.show()
             time.sleep(FinishDelay)
+
+
+    # Run a cascaded progressive animation across multiple sections.
+    # Each section starts when the previous one reaches trigger_position
+    # (relative index inside that section), creating an overlapping effect.
+    #
+    # Parameters:
+    # - data_pin: pin number for NeoPixel data line.
+    # - total_leds: total LEDs in strip.
+    # - sections_count: number of sections to animate.
+    # - leds_per_section: LEDs per section (int or list/tuple per section).
+    # - section_colors: color tuple per section. Supports RGB or RGBW.
+    # - step_ms: update period in milliseconds.
+    # - trigger_position: relative LED index that triggers next section.
+    # - trail: True keeps previous LEDs on, False keeps only moving point.
+    # - repeat: True repeats forever, False runs once.
+    # - state_machine: RP2040 PIO state machine index.
+    #
+    # Note: method uses one main loop, time.ticks_ms() scheduling and one
+    # self.show() call per global strip update.
+    def cascade_sections(self, data_pin, total_leds, sections_count, leds_per_section,
+                         section_colors, step_ms=40, trigger_position=40,
+                         trail=True, repeat=False, state_machine=0):
+        if total_leds <= 0 or sections_count <= 0:
+            return
+
+        # Allow fixed size for all sections or explicit size per section.
+        if isinstance(leds_per_section, int):
+            section_sizes = [leds_per_section for _ in range(sections_count)]
+        else:
+            section_sizes = list(leds_per_section)
+            if len(section_sizes) < sections_count:
+                return
+            section_sizes = section_sizes[:sections_count]
+
+        # Build section metadata constrained by strip boundaries.
+        sections = []
+        cursor = 0
+        for i in range(sections_count):
+            size = max(0, int(section_sizes[i]))
+            if cursor >= total_leds:
+                break
+            size = min(size, total_leds - cursor)
+            color = section_colors[i % len(section_colors)]
+            sections.append({
+                "start": cursor,
+                "size": size,
+                "color": color,
+                "pos": -1,
+                "active": False,
+                "done": False,
+                "last_abs": None
+            })
+            cursor += size
+
+        if not sections:
+            return
+
+        # Re-initialize current object for requested strip/pin.
+        self.__init__(total_leds, state_machine, data_pin, mode="RGBW" if 'W' in self.mode else "RGB", delay=self.delay)
+
+        # Trigger can be a single int for all transitions or a list/tuple
+        # with one trigger per transition (section i -> i+1).
+        transitions = max(0, len(sections) - 1)
+        if isinstance(trigger_position, (list, tuple)):
+            trigger_points = []
+            for i in range(transitions):
+                val = trigger_position[i] if i < len(trigger_position) else 0
+                trigger_points.append(max(0, int(val)))
+        else:
+            tp = max(0, int(trigger_position))
+            trigger_points = [tp for _ in range(transitions)]
+
+        off = (0, 0, 0, 0) if 'W' in self.mode else (0, 0, 0)
+
+        def reset_cycle_state():
+            self.fill(off)
+            for sec in sections:
+                sec["pos"] = -1
+                sec["active"] = False
+                sec["done"] = False
+                sec["last_abs"] = None
+            sections[0]["active"] = True
+            self.show()
+
+        reset_cycle_state()
+        next_tick = time.ticks_ms()
+
+        while True:
+            now = time.ticks_ms()
+            if time.ticks_diff(now, next_tick) < 0:
+                continue
+            next_tick = time.ticks_add(next_tick, max(1, int(step_ms)))
+
+            active_exists = False
+            for idx, sec in enumerate(sections):
+                if not sec["active"] or sec["done"]:
+                    continue
+
+                active_exists = True
+                next_pos = sec["pos"] + 1
+                if next_pos >= sec["size"]:
+                    sec["done"] = True
+                    sec["active"] = False
+                    continue
+
+                if not trail and sec["last_abs"] is not None:
+                    self.set_pixel(sec["last_abs"], off)
+
+                abs_idx = sec["start"] + next_pos
+                self.set_pixel(abs_idx, sec["color"])
+                sec["last_abs"] = abs_idx
+                sec["pos"] = next_pos
+
+                if idx < len(trigger_points) and sec["pos"] >= trigger_points[idx] and idx + 1 < len(sections):
+                    if not sections[idx + 1]["active"] and not sections[idx + 1]["done"]:
+                        sections[idx + 1]["active"] = True
+
+            self.show()
+
+            if not active_exists:
+                if not repeat:
+                    return
+                reset_cycle_state()
+                next_tick = time.ticks_ms()
