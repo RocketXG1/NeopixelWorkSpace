@@ -1,0 +1,66 @@
+Secuencial Cascade - Metodo SecuencialCascade(...)
+=================================================
+
+Archivo origen:
+- NeoPixel/neopixel.py
+- Clase: Neopixel
+- Metodo: SecuencialCascade(...)
+
+Descripcion
+-----------
+`SecuencialCascade` divide la tira en secciones y enciende cada seccion LED por LED.
+La primera seccion inicia de inmediato. Cuando una seccion alcanza su punto de disparo
+(relativo dentro de su propia seccion), activa la siguiente seccion, mientras la anterior
+continua avanzando hasta terminar.
+
+Se genera un efecto de cascada/desfase con varias secciones avanzando en paralelo.
+
+Parametros
+----------
+- data_pin (int): pin de datos NeoPixel.
+- total_leds (int): cantidad total de LEDs.
+- sections_count (int): cantidad de secciones.
+- leds_per_section (int | list/tuple): tamaño por seccion.
+- section_colors (list/tuple): color por seccion (RGB o RGBW).
+- step_ms (int): velocidad de avance en milisegundos.
+- trigger_position (int | list/tuple): punto de disparo relativo por transicion.
+- trail (bool): True deja rastro, False muestra solo punto movil.
+- repeat (bool): True repite, False ejecuta una sola vez.
+- state_machine (int): state machine PIO.
+
+Comportamiento tecnico
+----------------------
+- Usa un solo ciclo principal.
+- Usa `time.ticks_ms()` para temporizacion.
+- Realiza una sola llamada `self.show()` por actualizacion general.
+- Si el trigger no se alcanza (por ejemplo trigger > tamaño de seccion), la siguiente
+  seccion inicia al terminar la seccion actual.
+
+Ejemplo de uso
+--------------
+from neopixel import Neopixel
+
+np = Neopixel(num_leds=300, state_machine=0, pin=0, mode="RGB")
+
+amarillo = (255, 220, 0)
+purpura = (160, 0, 200)
+
+np.SecuencialCascade(
+    data_pin=0,
+    total_leds=300,
+    sections_count=3,
+    leds_per_section=[100, 100, 100],
+    section_colors=[amarillo, amarillo, purpura],
+    step_ms=30,
+    trigger_position=[50, 40],
+    trail=True,
+    repeat=True,
+    state_machine=0
+)
+
+Notas
+-----
+- Para una sola corrida completa usa `repeat=False`.
+- Para efecto tipo "punto", usa `trail=False`.
+- Si quieres más desfase, sube `trigger_position`; si quieres inicios mas rapidos,
+  bajalo.
