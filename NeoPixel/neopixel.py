@@ -2,6 +2,14 @@ import array, time
 from machine import Pin
 import rp2
 
+# MicroPython builds may not expose ProcessLookupError.
+# Define a compatibility fallback to avoid NameError in exception paths.
+try:
+    ProcessLookupError
+except NameError:
+    class ProcessLookupError(Exception):
+        pass
+
 # PIO state machine for RGB. Pulls 24 bits (rgb -> 3 * 8bit) automatically
 @rp2.asm_pio(sideset_init=rp2.PIO.OUT_LOW, out_shiftdir=rp2.PIO.SHIFT_LEFT, autopull=True, pull_thresh=24)
 def ws2812():
