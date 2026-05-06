@@ -439,12 +439,6 @@ class Neopixel:
 
         phase_steps = 50
 
-        def wait_tick(next_tick_ref):
-            while True:
-                now = time.ticks_ms()
-                if time.ticks_diff(now, next_tick_ref[0]) >= 0:
-                    next_tick_ref[0] = time.ticks_add(next_tick_ref[0], max(1, int(step_ms)))
-                    return
 
         def paint_phase(from_colors, to_colors, next_tick_ref):
             for step in range(phase_steps + 1):
@@ -468,6 +462,29 @@ class Neopixel:
             # Return: final -> mid -> now
             paint_phase(section_colors_final, section_colors_mid, next_tick)
             paint_phase(section_colors_mid, section_colors_now, next_tick)
+
+            # Return: final -> mid -> now (smooth gradient back to initial colors)
+            for step in range(forward_steps + 1):
+                now = time.ticks_ms()
+                if time.ticks_diff(now, next_tick) < 0:
+                    continue
+                next_tick = time.ticks_add(next_tick, max(1, int(step_ms)))
+
+
+
+                for idx, (start, size) in enumerate(sections):
+                    c_now = section_colors_now[idx % len(section_colors_now)]
+                    c_mid = section_colors_mid[idx % len(section_colors_mid)]
+                    c_final = section_colors_final[idx % len(section_colors_final)]
+
+                    if step <= phase_steps:
+                        c = lerp(c_final, c_mid, step / phase_steps)
+                    else:
+                        c = lerp(c_mid, c_now, (step - phase_steps) / phase_steps)
+
+                    self.set_pixel_range(start, start + size - 1, c)
+
+                self.show()
 
             if not repeat:
                 return
