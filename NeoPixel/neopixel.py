@@ -299,18 +299,28 @@ class Neopixel:
     def cascade_sections(self, data_pin, total_leds, sections_count, leds_per_section,
                          section_colors, step_ms=40, trigger_position=40,
                          trail=True, repeat=False, state_machine=0):
+        try:
+            total_leds = int(total_leds)
+            sections_count = int(sections_count)
+            step_ms = max(1, int(step_ms))
+        except:
+            return
+
         if total_leds <= 0 or sections_count <= 0:
             return
         if not section_colors:
             return
 
         # Build section sizes.
-        if isinstance(leds_per_section, int):
-            section_sizes = [max(0, int(leds_per_section)) for _ in range(sections_count)]
-        else:
-            section_sizes = [max(0, int(v)) for v in list(leds_per_section)[:sections_count]]
-            if len(section_sizes) < sections_count:
-                return
+        try:
+            if isinstance(leds_per_section, int):
+                section_sizes = [max(0, int(leds_per_section)) for _ in range(sections_count)]
+            else:
+                section_sizes = [max(0, int(v)) for v in list(leds_per_section)[:sections_count]]
+                if len(section_sizes) < sections_count:
+                    return
+        except:
+            return
 
         # Build section metadata clipped to strip size.
         sections = []
@@ -366,7 +376,7 @@ class Neopixel:
             now = time.ticks_ms()
             if time.ticks_diff(now, next_tick) < 0:
                 continue
-            next_tick = time.ticks_add(next_tick, max(1, int(step_ms)))
+            next_tick = time.ticks_add(next_tick, step_ms)
 
             updated = False
             for idx, sec in enumerate(sections):
