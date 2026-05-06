@@ -298,7 +298,7 @@ class Neopixel:
     # trigger position, section i+1 starts (while previous keeps advancing).
     def SecuencialCascade(self, data_pin, total_leds, sections_count, leds_per_section,
                          section_colors, step_ms=40, trigger_position=40,
-                         trail=True, repeat=False, state_machine=0):
+                         trail=True, repeat=False, state_machine=0, brightness=255):
         # Validate and normalize numeric inputs.
         try:
             total_leds = int(total_leds)
@@ -362,6 +362,28 @@ class Neopixel:
             sections_local[0]["active"] = True
             self.show()
 
+        def _reverse_off(sections_local, off_color, step_delay_ms):
+            tails = [sec["size"] - 1 for sec in sections_local]
+            while True:
+                any_update = False
+                for idx, sec in enumerate(sections_local):
+                    if tails[idx] < 0:
+                        continue
+                    abs_i = sec["start"] + tails[idx]
+                    self.set_pixel(abs_i, off_color)
+                    tails[idx] -= 1
+                    any_update = True
+                self.show()
+                if not any_update:
+                    return
+                wait_until = _ticks_add_int(_ticks_ms_int(), step_delay_ms)
+                while True:
+                    now_tick = _ticks_ms_int()
+                    if now_tick is None:
+                        return
+                    if _ticks_due(now_tick, wait_until):
+                        break
+
         section_sizes = _build_section_sizes(leds_per_section, sections_count)
         if not section_sizes:
             return
@@ -372,6 +394,10 @@ class Neopixel:
 
         mode = "RGBW" if 'W' in self.mode else "RGB"
         self.__init__(total_leds, state_machine, data_pin, mode=mode, delay=self.delay)
+        try:
+            self.brightness(int(brightness))
+        except:
+            self.brightness(255)
 
         transitions = len(sections) - 1
         trigger_points = _build_trigger_points(trigger_position, transitions)
@@ -446,13 +472,14 @@ class Neopixel:
             self.show()
 
             if not updated:
+                # When all sections finished, run reverse shutdown (tail -> head).
+                _reverse_off(sections, off, step_ms)
                 if not repeat:
                     return
                 _reset_cycle(sections, off)
                 next_tick = _ticks_ms_int()
                 if next_tick is None:
                     return
-
 
 
 

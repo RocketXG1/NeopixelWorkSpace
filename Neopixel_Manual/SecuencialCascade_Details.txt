@@ -27,6 +27,7 @@ Parametros
 - trail (bool): True deja rastro, False muestra solo punto movil.
 - repeat (bool): True repite, False ejecuta una sola vez.
 - state_machine (int): state machine PIO.
+- brightness (int): brillo fijo de la tira (1..255).
 
 Comportamiento tecnico
 ----------------------
@@ -35,6 +36,8 @@ Comportamiento tecnico
 - Realiza una sola llamada `self.show()` por actualizacion general.
 - Si el trigger no se alcanza (por ejemplo trigger > tamaño de seccion), la siguiente
   seccion inicia al terminar la seccion actual.
+- Cuando la ultima seccion termina, la tira regresa de adelante hacia atras apagando
+  LEDs progresivamente (un LED por seccion en cada tick).
 
 Ejemplo de uso
 --------------
@@ -55,7 +58,8 @@ np.SecuencialCascade(
     trigger_position=[50, 40],
     trail=True,
     repeat=True,
-    state_machine=0
+    state_machine=0,
+    brightness=80
 )
 
 Notas
