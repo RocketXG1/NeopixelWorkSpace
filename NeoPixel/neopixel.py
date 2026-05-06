@@ -447,6 +447,16 @@ class Neopixel:
                     if time.ticks_diff(now, next_tick_ref[0]) >= 0:
                         next_tick_ref[0] = time.ticks_add(next_tick_ref[0], max(1, int(step_ms)))
                         break
+        def wait_tick(next_tick_ref):
+            while True:
+                now = time.ticks_ms()
+                if time.ticks_diff(now, next_tick_ref[0]) >= 0:
+                    next_tick_ref[0] = time.ticks_add(next_tick_ref[0], max(1, int(step_ms)))
+                    return
+
+        def paint_phase(from_colors, to_colors, next_tick_ref):
+            for step in range(phase_steps + 1):
+                wait_tick(next_tick_ref)
                 self.brightness(start_brightness)
                 t = step / phase_steps
                 for idx, (start, size) in enumerate(sections):
