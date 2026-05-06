@@ -283,3 +283,183 @@ class Neopixel:
                 self.set_pixel(right, color)
             self.show()
             time.sleep(FinishDelay)
+
+    # Cascaded progressive animation by sections.
+    # Each section advances one LED per tick. When section i reaches its
+    # trigger position, section i+1 starts (while previous keeps advancing).
+    def cascade_sections(self, data_pin, total_leds, sections_count, leds_per_section,
+                         section_colors, step_ms=40, trigger_position=40,
+                         trail=True, repeat=False, state_machine=0):
+        if total_leds <= 0 or sections_count <= 0:
+            return
+        if not section_colors:
+            return
+
+        # Build section sizes.
+        if isinstance(leds_per_section, int):
+            section_sizes = [max(0, int(leds_per_section)) for _ in range(sections_count)]
+        else:
+            section_sizes = [max(0, int(v)) for v in list(leds_per_section)[:sections_count]]
+            if len(section_sizes) < sections_count:
+                return
+
+        # Build section metadata clipped to strip size.
+        sections = []
+        cursor = 0
+        for i in range(sections_count):
+            if cursor >= total_leds:
+                break
+            size = min(section_sizes[i], total_leds - cursor)
+            if size <= 0:
+                continue
+            sections.append({
+                "start": cursor,
+                "size": size,
+                "color": section_colors[i % len(section_colors)],
+                "pos": -1,
+                "active": False,
+                "done": False,
+                "last_abs": None,
+            })
+            cursor += size
+
+        if not sections:
+            return
+
+        # Re-init object using requested pin/strip.
+        mode = "RGBW" if 'W' in self.mode else "RGB"
+        self.__init__(total_leds, state_machine, data_pin, mode=mode, delay=self.delay)
+
+        transitions = len(sections) - 1
+        if isinstance(trigger_position, (list, tuple)):
+            trigger_points = [max(0, int(trigger_position[i])) if i < len(trigger_position) else 0
+                              for i in range(transitions)]
+        else:
+            tp = max(0, int(trigger_position))
+            trigger_points = [tp for _ in range(transitions)]
+
+        off = (0, 0, 0, 0) if 'W' in self.mode else (0, 0, 0)
+
+        def reset_cycle():
+            self.fill(off)
+            for s in sections:
+                s["pos"] = -1
+                s["active"] = False
+                s["done"] = False
+                s["last_abs"] = None
+            sections[0]["active"] = True
+            self.show()
+
+        reset_cycle()
+        next_tick = time.ticks_ms()
+
+        while True:
+            now = time.ticks_ms()
+            if time.ticks_diff(now, next_tick) < 0:
+                continue
+            next_tick = time.ticks_add(next_tick, max(1, int(step_ms)))
+
+            updated = False
+            for idx, sec in enumerate(sections):
+                if not sec["active"] or sec["done"]:
+                    continue
+
+                next_pos = sec["pos"] + 1
+                if next_pos >= sec["size"]:
+                    sec["active"] = False
+                    sec["done"] = True
+                    continue
+
+                if not trail and sec["last_abs"] is not None:
+                    self.set_pixel(sec["last_abs"], off)
+
+                abs_i = sec["start"] + next_pos
+                self.set_pixel(abs_i, sec["color"])
+                sec["last_abs"] = abs_i
+                sec["pos"] = next_pos
+                updated = True
+
+                # Trigger next section exactly once when threshold reached.
+                if idx < transitions and sec["pos"] >= trigger_points[idx]:
+                    nxt = sections[idx + 1]
+                    if (not nxt["active"]) and (not nxt["done"]):
+                        nxt["active"] = True
+
+            # keep one global write per tick
+            self.show()
+
+            if not updated:
+                if not repeat:
+                    return
+                reset_cycle()
+                next_tick = time.ticks_ms()
+
+
+    # Two-phase section color gradient with global brightness ramp.
+    def _GradientTransition(self, section_colors_now, section_colors_mid, section_colors_final,
+                            leds_per_section, section_count, total_leds,
+                            step_ms=16, start_brightness=40, max_brightness=255,
+                            repeat=False):
+        if total_leds <= 0 or section_count <= 0:
+            return
+        if not section_colors_now or not section_colors_mid or not section_colors_final:
+            return
+
+        if isinstance(leds_per_section, int):
+            section_sizes = [max(0, int(leds_per_section)) for _ in range(section_count)]
+        else:
+            section_sizes = [max(0, int(v)) for v in list(leds_per_section)[:section_count]]
+            if len(section_sizes) < section_count:
+                return
+
+        start_brightness = max(1, min(255, int(start_brightness)))
+        max_brightness = max(1, min(255, int(max_brightness)))
+        if max_brightness < start_brightness:
+            start_brightness, max_brightness = max_brightness, start_brightness
+
+        sections = []
+        cursor = 0
+        for i in range(section_count):
+            if cursor >= total_leds:
+                break
+            size = min(section_sizes[i], total_leds - cursor)
+            if size > 0:
+                sections.append((cursor, size))
+            cursor += max(0, section_sizes[i])
+
+        if not sections:
+            return
+
+        def lerp(c1, c2, t):
+            return tuple(int(c1[k] + (c2[k] - c1[k]) * t) for k in range(len(c1)))
+
+        phase_steps = 50
+        total_steps = phase_steps * 2
+
+        while True:
+            next_tick = time.ticks_ms()
+            for step in range(total_steps + 1):
+                now = time.ticks_ms()
+                if time.ticks_diff(now, next_tick) < 0:
+                    continue
+                next_tick = time.ticks_add(next_tick, max(1, int(step_ms)))
+
+                b = start_brightness + (max_brightness - start_brightness) * step / total_steps
+                self.brightness(int(b))
+
+                for idx, (start, size) in enumerate(sections):
+                    c_now = section_colors_now[idx % len(section_colors_now)]
+                    c_mid = section_colors_mid[idx % len(section_colors_mid)]
+                    c_final = section_colors_final[idx % len(section_colors_final)]
+
+                    if step <= phase_steps:
+                        c = lerp(c_now, c_mid, step / phase_steps)
+                    else:
+                        c = lerp(c_mid, c_final, (step - phase_steps) / phase_steps)
+
+                    self.set_pixel_range(start, start + size - 1, c)
+
+                self.show()
+
+            if not repeat:
+                return

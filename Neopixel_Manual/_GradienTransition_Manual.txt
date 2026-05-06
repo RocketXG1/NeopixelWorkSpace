@@ -1,0 +1,44 @@
+_GradienTransition Manual
+=========================
+
+Este archivo documenta el uso del metodo `_GradientTransition(...)` definido en `NeoPixel/neopixel.py`.
+
+Resumen rapido
+--------------
+- Realiza una transicion por secciones en dos fases:
+  1) color actual -> color intermedio
+  2) color intermedio -> color final
+- Incrementa brillo gradualmente desde `start_brightness` hasta `max_brightness`.
+- Permite repetir o ejecutar una sola vez.
+
+Parametros principales
+----------------------
+- section_colors_now
+- section_colors_mid
+- section_colors_final
+- leds_per_section
+- section_count
+- total_leds
+- step_ms
+- start_brightness
+- max_brightness
+- repeat
+
+Ejemplo minimo
+--------------
+from neopixel import Neopixel
+
+np = Neopixel(num_leds=180, state_machine=0, pin=0, mode="RGB")
+
+np._GradientTransition(
+    section_colors_now=[(255,0,0),(0,255,0),(0,0,255)],
+    section_colors_mid=[(255,128,0),(0,255,255),(255,0,255)],
+    section_colors_final=[(255,255,0),(255,255,255),(160,0,200)],
+    leds_per_section=[60,60,60],
+    section_count=3,
+    total_leds=180,
+    step_ms=20,
+    start_brightness=30,
+    max_brightness=255,
+    repeat=False,
+)
