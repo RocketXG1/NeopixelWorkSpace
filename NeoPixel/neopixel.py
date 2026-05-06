@@ -369,6 +369,12 @@ class Neopixel:
                 if next_pos >= sec["size"]:
                     sec["active"] = False
                     sec["done"] = True
+                    # If trigger threshold was never reached (e.g. threshold > size-1),
+                    # start the next section when this one finishes.
+                    if idx < transitions:
+                        nxt = sections[idx + 1]
+                        if (not nxt["active"]) and (not nxt["done"]):
+                            nxt["active"] = True
                     continue
 
                 if not trail and sec["last_abs"] is not None:
@@ -414,9 +420,6 @@ class Neopixel:
                 return
 
         start_brightness = max(1, min(255, int(start_brightness)))
-        max_brightness = max(1, min(255, int(max_brightness)))
-        if max_brightness < start_brightness:
-            start_brightness, max_brightness = max_brightness, start_brightness
 
         sections = []
         cursor = 0
@@ -435,32 +438,36 @@ class Neopixel:
             return tuple(int(c1[k] + (c2[k] - c1[k]) * t) for k in range(len(c1)))
 
         phase_steps = 50
-        total_steps = phase_steps * 2
+
+        def wait_tick(next_tick_ref):
+            while True:
+                now = time.ticks_ms()
+                if time.ticks_diff(now, next_tick_ref[0]) >= 0:
+                    next_tick_ref[0] = time.ticks_add(next_tick_ref[0], max(1, int(step_ms)))
+                    return
+
+        def paint_phase(from_colors, to_colors, next_tick_ref):
+            for step in range(phase_steps + 1):
+                wait_tick(next_tick_ref)
+                self.brightness(start_brightness)
+                t = step / phase_steps
+                for idx, (start, size) in enumerate(sections):
+                    c_from = from_colors[idx % len(from_colors)]
+                    c_to = to_colors[idx % len(to_colors)]
+                    c = lerp(c_from, c_to, t)
+                    self.set_pixel_range(start, start + size - 1, c)
+                self.show()
 
         while True:
-            next_tick = time.ticks_ms()
-            for step in range(total_steps + 1):
-                now = time.ticks_ms()
-                if time.ticks_diff(now, next_tick) < 0:
-                    continue
-                next_tick = time.ticks_add(next_tick, max(1, int(step_ms)))
+            next_tick = [time.ticks_ms()]
 
-                b = start_brightness + (max_brightness - start_brightness) * step / total_steps
-                self.brightness(int(b))
+            # Forward: now -> mid -> final
+            paint_phase(section_colors_now, section_colors_mid, next_tick)
+            paint_phase(section_colors_mid, section_colors_final, next_tick)
 
-                for idx, (start, size) in enumerate(sections):
-                    c_now = section_colors_now[idx % len(section_colors_now)]
-                    c_mid = section_colors_mid[idx % len(section_colors_mid)]
-                    c_final = section_colors_final[idx % len(section_colors_final)]
-
-                    if step <= phase_steps:
-                        c = lerp(c_now, c_mid, step / phase_steps)
-                    else:
-                        c = lerp(c_mid, c_final, (step - phase_steps) / phase_steps)
-
-                    self.set_pixel_range(start, start + size - 1, c)
-
-                self.show()
+            # Return: final -> mid -> now
+            paint_phase(section_colors_final, section_colors_mid, next_tick)
+            paint_phase(section_colors_mid, section_colors_now, next_tick)
 
             if not repeat:
                 return
