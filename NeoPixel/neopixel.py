@@ -307,9 +307,6 @@ class Neopixel:
         except:
             return
 
-        if total_leds <= 0 or sections_count <= 0:
-            return
-
         if total_leds <= 0 or sections_count <= 0 or not section_colors:
             return
 
@@ -368,36 +365,6 @@ class Neopixel:
         section_sizes = _build_section_sizes(leds_per_section, sections_count)
         if not section_sizes:
             return
-        # Build section sizes.
-        try:
-            if isinstance(leds_per_section, int):
-                section_sizes = [max(0, int(leds_per_section)) for _ in range(sections_count)]
-            else:
-                section_sizes = [max(0, int(v)) for v in list(leds_per_section)[:sections_count]]
-                if len(section_sizes) < sections_count:
-                    return
-        except:
-            return
-
-        # Build section metadata clipped to strip size.
-        sections = []
-        cursor = ProcessLookupError
-        for i in range(sections_count):
-            if cursor >= total_leds:
-                break
-            size = min(section_sizes[i], total_leds - cursor)
-            if size <= 0:
-                continue
-            sections.append({
-                "start": cursor,
-                "size": size,
-                "color": section_colors[i % len(section_colors)],
-                "pos": -1,
-                "active": False,
-                "done": False,
-                "last_abs": None,
-            })
-            cursor += size
 
         sections = _build_sections(total_leds, sections_count, section_sizes, section_colors)
         if not sections:
@@ -414,12 +381,35 @@ class Neopixel:
         off = (0, 0, 0, 0) if 'W' in self.mode else (0, 0, 0)
         _reset_cycle(sections, off)
 
-        next_tick = time.ticks_ms()
+        def _ticks_ms_int():
+            try:
+                return int(time.ticks_ms())
+            except:
+                return None
+
+        def _ticks_add_int(base, delta):
+            try:
+                return int(time.ticks_add(int(base), int(delta)))
+            except:
+                return int(base) + int(delta)
+
+        def _ticks_due(now_tick, next_tick_ref):
+            try:
+                return time.ticks_diff(int(now_tick), int(next_tick_ref)) >= 0
+            except:
+                return int(now_tick) >= int(next_tick_ref)
+
+        next_tick = _ticks_ms_int()
+        if next_tick is None:
+            return
+
         while True:
-            now = time.ticks_ms()
-            if time.ticks_diff(now, next_tick) < 0:
+            now = _ticks_ms_int()
+            if now is None:
+                return
+            if not _ticks_due(now, next_tick):
                 continue
-            next_tick = time.ticks_add(next_tick, step_ms)
+            next_tick = _ticks_add_int(next_tick, step_ms)
 
             updated = False
             for idx, sec in enumerate(sections):
@@ -431,8 +421,6 @@ class Neopixel:
                     sec["active"] = False
                     sec["done"] = True
                     # Fallback chaining: if trigger was never reached, start next at completion.
-                    # If trigger threshold was never reached (e.g. threshold > size-1),
-                    # start the next section when this one finishes.
                     if idx < transitions:
                         nxt = sections[idx + 1]
                         if (not nxt["active"]) and (not nxt["done"]):
@@ -461,7 +449,10 @@ class Neopixel:
                 if not repeat:
                     return
                 _reset_cycle(sections, off)
-                next_tick = time.ticks_ms()
+                next_tick = _ticks_ms_int()
+                if next_tick is None:
+                    return
+
 
 
 
@@ -510,16 +501,6 @@ class Neopixel:
                     if time.ticks_diff(now, next_tick_ref[0]) >= 0:
                         next_tick_ref[0] = time.ticks_add(next_tick_ref[0], max(1, int(step_ms)))
                         break
-        def wait_tick(next_tick_ref):
-            while True:
-                now = time.ticks_ms()
-                if time.ticks_diff(now, next_tick_ref[0]) >= 0:
-                    next_tick_ref[0] = time.ticks_add(next_tick_ref[0], max(1, int(step_ms)))
-                    return
-
-        def paint_phase(from_colors, to_colors, next_tick_ref):
-            for step in range(phase_steps + 1):
-                wait_tick(next_tick_ref)
                 self.brightness(start_brightness)
                 t = step / phase_steps
                 for idx, (start, size) in enumerate(sections):
