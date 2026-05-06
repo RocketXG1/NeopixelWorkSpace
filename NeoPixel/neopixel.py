@@ -420,9 +420,6 @@ class Neopixel:
                 return
 
         start_brightness = max(1, min(255, int(start_brightness)))
-        max_brightness = max(1, min(255, int(max_brightness)))
-        if max_brightness < start_brightness:
-            start_brightness, max_brightness = max_brightness, start_brightness
 
         sections = []
         cursor = 0
@@ -453,8 +450,7 @@ class Neopixel:
                     continue
                 next_tick = time.ticks_add(next_tick, max(1, int(step_ms)))
 
-                b = start_brightness + (max_brightness - start_brightness) * step / forward_steps
-                self.brightness(int(b))
+
 
                 for idx, (start, size) in enumerate(sections):
                     c_now = section_colors_now[idx % len(section_colors_now)]
@@ -477,8 +473,7 @@ class Neopixel:
                     continue
                 next_tick = time.ticks_add(next_tick, max(1, int(step_ms)))
 
-                b = max_brightness - (max_brightness - start_brightness) * step / forward_steps
-                self.brightness(int(b))
+
 
                 for idx, (start, size) in enumerate(sections):
                     c_now = section_colors_now[idx % len(section_colors_now)]
