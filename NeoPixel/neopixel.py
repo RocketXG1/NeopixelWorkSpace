@@ -296,9 +296,10 @@ class Neopixel:
 # Cascaded progressive animation by sections.
     # Each section advances one LED per tick. When section i reaches its
     # trigger position, section i+1 starts (while previous keeps advancing).
-    def cascade_sections(self, data_pin, total_leds, sections_count, leds_per_section,
+    def SecuencialCascade(self, data_pin, total_leds, sections_count, leds_per_section,
                          section_colors, step_ms=40, trigger_position=40,
                          trail=True, repeat=False, state_machine=0):
+        # Validate and normalize numeric inputs.
         try:
             total_leds = int(total_leds)
             sections_count = int(sections_count)
@@ -308,9 +309,65 @@ class Neopixel:
 
         if total_leds <= 0 or sections_count <= 0:
             return
-        if not section_colors:
+
+        if total_leds <= 0 or sections_count <= 0 or not section_colors:
             return
 
+        def _build_section_sizes(leds_cfg, count):
+            try:
+                if isinstance(leds_cfg, int):
+                    return [max(0, int(leds_cfg)) for _ in range(count)]
+                sizes = [max(0, int(v)) for v in list(leds_cfg)[:count]]
+                if len(sizes) < count:
+                    return None
+                return sizes
+            except:
+                return None
+
+        def _build_sections(total, count, sizes, colors):
+            sections_local = []
+            cursor_local = 0
+            for idx in range(count):
+                if cursor_local >= total:
+                    break
+                size = min(sizes[idx], total - cursor_local)
+                if size <= 0:
+                    continue
+                sections_local.append({
+                    "start": cursor_local,
+                    "size": size,
+                    "color": colors[idx % len(colors)],
+                    "pos": -1,
+                    "active": False,
+                    "done": False,
+                    "last_abs": None,
+                })
+                cursor_local += size
+            return sections_local
+
+        def _build_trigger_points(trigger_cfg, transitions):
+            try:
+                if isinstance(trigger_cfg, (list, tuple)):
+                    return [max(0, int(trigger_cfg[i])) if i < len(trigger_cfg) else 0
+                            for i in range(transitions)]
+                tp = max(0, int(trigger_cfg))
+                return [tp for _ in range(transitions)]
+            except:
+                return None
+
+        def _reset_cycle(sections_local, off_color):
+            self.fill(off_color)
+            for sec in sections_local:
+                sec["pos"] = -1
+                sec["active"] = False
+                sec["done"] = False
+                sec["last_abs"] = None
+            sections_local[0]["active"] = True
+            self.show()
+
+        section_sizes = _build_section_sizes(leds_per_section, sections_count)
+        if not section_sizes:
+            return
         # Build section sizes.
         try:
             if isinstance(leds_per_section, int):
@@ -342,36 +399,22 @@ class Neopixel:
             })
             cursor += size
 
+        sections = _build_sections(total_leds, sections_count, section_sizes, section_colors)
         if not sections:
             return
 
-        # Re-init object using requested pin/strip.
         mode = "RGBW" if 'W' in self.mode else "RGB"
         self.__init__(total_leds, state_machine, data_pin, mode=mode, delay=self.delay)
 
         transitions = len(sections) - 1
-        if isinstance(trigger_position, (list, tuple)):
-            trigger_points = [max(0, int(trigger_position[i])) if i < len(trigger_position) else 0
-                              for i in range(transitions)]
-        else:
-            tp = max(0, int(trigger_position))
-            trigger_points = [tp for _ in range(transitions)]
+        trigger_points = _build_trigger_points(trigger_position, transitions)
+        if trigger_points is None:
+            return
 
         off = (0, 0, 0, 0) if 'W' in self.mode else (0, 0, 0)
+        _reset_cycle(sections, off)
 
-        def reset_cycle():
-            self.fill(off)
-            for s in sections:
-                s["pos"] = -1
-                s["active"] = False
-                s["done"] = False
-                s["last_abs"] = None
-            sections[0]["active"] = True
-            self.show()
-
-        reset_cycle()
         next_tick = time.ticks_ms()
-
         while True:
             now = time.ticks_ms()
             if time.ticks_diff(now, next_tick) < 0:
@@ -380,13 +423,14 @@ class Neopixel:
 
             updated = False
             for idx, sec in enumerate(sections):
-                if not sec["active"] or sec["done"]:
+                if (not sec["active"]) or sec["done"]:
                     continue
 
                 next_pos = sec["pos"] + 1
                 if next_pos >= sec["size"]:
                     sec["active"] = False
                     sec["done"] = True
+                    # Fallback chaining: if trigger was never reached, start next at completion.
                     # If trigger threshold was never reached (e.g. threshold > size-1),
                     # start the next section when this one finishes.
                     if idx < transitions:
@@ -395,7 +439,7 @@ class Neopixel:
                             nxt["active"] = True
                     continue
 
-                if not trail and sec["last_abs"] is not None:
+                if (not trail) and (sec["last_abs"] is not None):
                     self.set_pixel(sec["last_abs"], off)
 
                 abs_i = sec["start"] + next_pos
@@ -404,20 +448,21 @@ class Neopixel:
                 sec["pos"] = next_pos
                 updated = True
 
-                # Trigger next section exactly once when threshold reached.
+                # Trigger next section once current reaches its relative trigger position.
                 if idx < transitions and sec["pos"] >= trigger_points[idx]:
                     nxt = sections[idx + 1]
                     if (not nxt["active"]) and (not nxt["done"]):
                         nxt["active"] = True
 
-            # keep one global write per tick
+            # Single global write per tick.
             self.show()
 
             if not updated:
                 if not repeat:
                     return
-                reset_cycle()
+                _reset_cycle(sections, off)
                 next_tick = time.ticks_ms()
+
 
 
     # Two-phase section color gradient with global brightness ramp.
