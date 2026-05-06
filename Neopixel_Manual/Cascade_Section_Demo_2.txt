@@ -1,0 +1,45 @@
+Cascade Section Demo 2
+======================
+
+Configuracion solicitada
+------------------------
+- Secciones: 5
+- LEDs por seccion: [100, 80, 100, 40, 50]
+- Trigger por transicion: [80, 60, 70, 30]
+- Colores: [amarillo, blanco, blanco, cian, special]
+- special = mezcla amarillo + purpura
+- step: 16 ms (0.016 segundos)
+- trail: False
+
+Ejemplo
+-------
+from neopixel import Neopixel
+
+amarillo = (255, 220, 0)
+blanco   = (255, 255, 255)
+cian     = (0, 255, 255)
+purpura  = (160, 0, 200)
+
+special = (
+    (amarillo[0] + purpura[0]) // 2,
+    (amarillo[1] + purpura[1]) // 2,
+    (amarillo[2] + purpura[2]) // 2,
+)
+
+sizes = [100, 80, 100, 40, 50]
+triggers = [80, 60, 70, 30]
+colors = [amarillo, blanco, blanco, cian, special]
+
+np = Neopixel(num_leds=sum(sizes), state_machine=0, pin=0, mode="RGB")
+np.cascade_sections(
+    data_pin=0,
+    total_leds=sum(sizes),
+    sections_count=5,
+    leds_per_section=sizes,
+    section_colors=colors,
+    step_ms=16,
+    trigger_position=triggers,
+    trail=False,
+    repeat=True,
+    state_machine=0,
+)

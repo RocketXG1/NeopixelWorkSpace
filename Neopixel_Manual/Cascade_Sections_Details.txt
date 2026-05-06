@@ -1,0 +1,43 @@
+Cascade Sections Details
+========================
+
+Metodo
+------
+`cascade_sections(data_pin, total_leds, sections_count, leds_per_section, section_colors, step_ms=40, trigger_position=40, trail=True, repeat=False, state_machine=0)`
+
+Funcionamiento
+--------------
+- Divide la tira en secciones.
+- Inicia la seccion 1 inmediatamente.
+- Cada seccion avanza LED por LED.
+- Cuando una seccion alcanza su `trigger_position`, se activa la siguiente.
+- Si `trail=True`, se deja rastro encendido.
+- Si `trail=False`, solo se ve un punto movil por seccion.
+- Usa `time.ticks_ms()` y una sola llamada a `self.show()` por tick.
+
+Notas importantes
+-----------------
+- `trigger_position` puede ser:
+  - entero: mismo trigger para todas las transiciones.
+  - lista/tupla: trigger por transicion (ejemplo: [50, 40, 20]).
+- `leds_per_section` puede ser entero o lista/tupla.
+- El metodo recorta automaticamente las secciones a `total_leds`.
+
+Ejemplo
+-------
+from neopixel import Neopixel
+
+np = Neopixel(num_leds=300, state_machine=0, pin=0, mode="RGB")
+
+np.cascade_sections(
+    data_pin=0,
+    total_leds=300,
+    sections_count=3,
+    leds_per_section=[100,100,100],
+    section_colors=[(255,220,0),(255,220,0),(160,0,200)],
+    step_ms=30,
+    trigger_position=[50,40],
+    trail=True,
+    repeat=True,
+    state_machine=0,
+)
