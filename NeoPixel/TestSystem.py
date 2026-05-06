@@ -3,18 +3,43 @@
 
 import time
 import _thread
-from machine import Pin
-from NeoPixel.neopixel import Neopixel
-from NeoPixel.BlackLight.BlackLightControl import BlackLightControl
+from  machine import Pin
+#from NeoPixel.neopixel import Neopixel
+from neopixel import Neopixel
+from BlackLight.BlackLightControl import BlackLightControl
 
-numpix = 36
-strip = Neopixel(numpix, 0, 29, "RGB")
+DATA_PIN = 29
+STATE_MACHINE = 0
+SECCIONES = 5
+LEDS_POR_SECCION = [30, 30, 30, 30, 30]
+TOTAL_LEDS = sum(LEDS_POR_SECCION)  # 370
+
+numpix = TOTAL_LEDS
+#strip = Neopixel(numpix, 0, 29, "RGB")
 Ready = Neopixel(1, 1, 16, "GRB")
 
 bSensor=Pin(27,Pin.IN)
 
 BlackLight=BlackLightControl(28,1000)
 BlackLight.set_percent(100)
+
+
+
+# Colores RGB
+amarillo = (255, 220, 0)
+blanco   = (255, 255, 255)
+cian     = (0, 255, 255)
+purpura  = (160, 0, 200)
+
+# "special" = mezcla/gradiente simple entre amarillo y purpura
+# (promedio de ambos colores)
+special = (
+    (amarillo[0] + purpura[0]) // 2,
+    (amarillo[1] + purpura[1]) // 2,
+    (amarillo[2] + purpura[2]) // 2,
+)
+
+
 
 
 red = (255,0,0)
@@ -37,6 +62,9 @@ colors_rgbw.append((0, 0, 0, 255))
 #colors = colors_rgb
 colors = colors_rgbw
 
+section_colors = [blue, blanco, blanco, cian, special]
+triggers = [20, 10, 5, 20]
+
 
 
 
@@ -48,43 +76,42 @@ print("Ready")
 
 iStartDelay=0.04
 iFinishDelay=0.06
-strip.brightness(50)
-strip.fill(cian)
-strip.show() 
+#strip.brightness(50)
+#strip.fill(cian)
+#strip.show() 
 print("Ready2")
 
 iStartDelay=0.05
 iFinishDelay=0.06
 
-strip.circular_bounce_fill(wite,iStartDelay,iFinishDelay,150)
-strip.animate_color_range(25,34,red,0.5,False)
-strip.animate_color_range(0,35,Off,1,True) 
+#strip.circular_bounce_fill(wite,iStartDelay,iFinishDelay,150)
+#strip.animate_color_range(25,34,red,0.5,False)
+#strip.animate_color_range(0,35,Off,1,True) 
 
-def MonStart():
-    strip.circular_bounce_fill(wite,iStartDelay,iFinishDelay,20)
-    strip.animate_color_range(25,34,blue,0.5,False)    
-    strip.animate_color_range(0,24,yellow,1.5,False)
+#def MonStart():
+ #   strip.circular_bounce_fill(wite,iStartDelay,iFinishDelay,20)
+  #  strip.animate_color_range(25,34,blue,0.5,False)    
+   # strip.animate_color_range(0,24,yellow,1.5,False)
 
-def MonSleep():
-    strip.animate_color_range(25,34,wite,0.5,True)
-    strip.animate_color_range(0,35,Off,1,True) 
+#def MonSleep():
+    #strip.animate_color_range(25,34,wite,0.5,True)
+    #strip.animate_color_range(0,35,Off,1,True) 
+strip = Neopixel(num_leds=TOTAL_LEDS, state_machine=STATE_MACHINE, pin=DATA_PIN, mode="RGB")
 
-def _NeoPixelTask():
-    while True:
-        MonStart()
-        MonSleep
-
-#_thread.start_new_thread(_NeoPixelTask,())
 
 Ready.brightness(50)
-while True:  
-    MonStart()      
-    BlackLight.ramp_percent(1,0.5,100,90)
-    MonSleep() 
-    BlackLight.ramp_percent(1,0.5,90,100)
-    
+while True: 
+      
+    #strip.animate_color_range(25,34,wite,0.5,True)
+    print("done")   
+    strip.cascade_sections(data_pin=DATA_PIN,total_leds=TOTAL_LEDS,sections_count=SECCIONES,leds_per_section=LEDS_POR_SECCION,section_colors=section_colors,step_ms=1000,trail=True,repeat=False,state_machine=STATE_MACHINE)
 
-  
+    #MonStart()      
+    #BlackLight.ramp_percent(1,0.5,100,90)
+    #MonSleep() 
+    #BlackLight.ramp_percent(1,0.5,90,100)
+    
+    
    # if bSensor.value():
     #    Ready.fill(cian)
      #   MonStart()
