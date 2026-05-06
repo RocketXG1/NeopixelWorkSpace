@@ -1,0 +1,55 @@
+Gradient Transition - Metodo _GradientTransition(...)
+====================================================
+
+Archivo origen del metodo:
+- NeoPixel/neopixel.py
+- Clase: Neopixel
+- Metodo: _GradientTransition(...)
+
+Descripcion
+-----------
+Este metodo realiza una transicion por secciones en 4 fases de color, manteniendo
+brillo fijo durante toda la animacion:
+
+1) now -> mid
+2) mid -> final
+3) final -> mid
+4) mid -> now
+
+Con esto se evita un salto brusco del color final al color inicial.
+
+Parametros clave
+----------------
+- section_colors_now: colores iniciales por seccion.
+- section_colors_mid: colores intermedios por seccion.
+- section_colors_final: colores finales por seccion.
+- step_ms: tiempo por frame en milisegundos.
+- start_brightness: brillo fijo (1..255) aplicado en toda la transicion.
+- repeat: si True, repite el ciclo completo.
+- phase_steps: cantidad de pasos por fase (recomendado >= 80 para suavidad).
+
+Notas de suavidad
+-----------------
+- Si aun percibes cambios fuertes, sube `phase_steps` (por ejemplo 120, 180, 240).
+- El metodo interpola con redondeo por canal para reducir saltos visibles.
+- `max_brightness` se mantiene en la firma por compatibilidad, pero el brillo activo
+  es fijo con `start_brightness`.
+
+Ejemplo de uso
+--------------
+from neopixel import Neopixel
+
+np = Neopixel(num_leds=300, state_machine=0, pin=0, mode="RGB")
+
+np._GradientTransition(
+    section_colors_now=[(255, 220, 0), (255, 220, 0), (160, 0, 200)],
+    section_colors_mid=[(255, 120, 0), (220, 80, 120), (120, 0, 255)],
+    section_colors_final=[(255, 0, 0), (255, 0, 80), (80, 0, 255)],
+    leds_per_section=[100, 100, 100],
+    section_count=3,
+    total_leds=300,
+    step_ms=20,
+    start_brightness=60,
+    repeat=True,
+    phase_steps=160
+)
