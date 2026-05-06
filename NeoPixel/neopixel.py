@@ -450,7 +450,7 @@ class Neopixel:
                     continue
                 next_tick = time.ticks_add(next_tick, max(1, int(step_ms)))
 
-                self.brightness(start_brightness)
+
 
                 for idx, (start, size) in enumerate(sections):
                     c_now = section_colors_now[idx % len(section_colors_now)]
@@ -473,7 +473,7 @@ class Neopixel:
                     continue
                 next_tick = time.ticks_add(next_tick, max(1, int(step_ms)))
 
-                self.brightness(start_brightness)
+
 
                 for idx, (start, size) in enumerate(sections):
                     c_now = section_colors_now[idx % len(section_colors_now)]
