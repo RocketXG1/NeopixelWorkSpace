@@ -369,6 +369,12 @@ class Neopixel:
                 if next_pos >= sec["size"]:
                     sec["active"] = False
                     sec["done"] = True
+                    # If trigger threshold was never reached (e.g. threshold > size-1),
+                    # start the next section when this one finishes.
+                    if idx < transitions:
+                        nxt = sections[idx + 1]
+                        if (not nxt["active"]) and (not nxt["done"]):
+                            nxt["active"] = True
                     continue
 
                 if not trail and sec["last_abs"] is not None:
