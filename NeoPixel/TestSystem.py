@@ -104,8 +104,10 @@ while True:
       
     #strip.animate_color_range(25,34,wite,0.5,True)
     print("done")   
-    strip.cascade_sections(data_pin=DATA_PIN,total_leds=TOTAL_LEDS,sections_count=SECCIONES,leds_per_section=LEDS_POR_SECCION,section_colors=section_colors,step_ms=1000,trail=True,repeat=False,state_machine=STATE_MACHINE)
+    #strip.cascade_sections(data_pin=DATA_PIN,total_leds=TOTAL_LEDS,sections_count=SECCIONES,leds_per_section=LEDS_POR_SECCION,section_colors=section_colors,step_ms=500,trail=True,repeat=False,state_machine=STATE_MACHINE)
 
+    strip._GradientTransition(section_colors_now=[yellow,purpura,cian],section_colors_mid=[red,blue,(255,0,255)],section_colors_final=[purpura,green,red],leds_per_section=[5,30,30],section_count=3,total_leds=65,step_ms=8,start_brightness=80,repeat=True,phase_steps=160)
+    
     #MonStart()      
     #BlackLight.ramp_percent(1,0.5,100,90)
     #MonSleep() 

@@ -306,7 +306,7 @@ class Neopixel:
 
         # Build section metadata clipped to strip size.
         sections = []
-        cursor = 0
+        cursor = ProcessLookupError
         for i in range(sections_count):
             if cursor >= total_leds:
                 break
