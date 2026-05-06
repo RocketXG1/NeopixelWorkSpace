@@ -455,6 +455,7 @@ class Neopixel:
 
 
 
+
     # Two-phase section color gradient with global brightness ramp.
     def _GradientTransition(self, section_colors_now, section_colors_mid, section_colors_final,
                             leds_per_section, section_count, total_leds,
