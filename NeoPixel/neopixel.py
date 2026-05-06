@@ -2,6 +2,14 @@ import array, time
 from machine import Pin
 import rp2
 
+# MicroPython builds may not expose ProcessLookupError.
+# Define a compatibility fallback to avoid NameError in exception paths.
+try:
+    ProcessLookupError
+except NameError:
+    class ProcessLookupError(Exception):
+        pass
+
 # PIO state machine for RGB. Pulls 24 bits (rgb -> 3 * 8bit) automatically
 @rp2.asm_pio(sideset_init=rp2.PIO.OUT_LOW, out_shiftdir=rp2.PIO.SHIFT_LEFT, autopull=True, pull_thresh=24)
 def ws2812():
@@ -291,18 +299,28 @@ class Neopixel:
     def cascade_sections(self, data_pin, total_leds, sections_count, leds_per_section,
                          section_colors, step_ms=40, trigger_position=40,
                          trail=True, repeat=False, state_machine=0):
+        try:
+            total_leds = int(total_leds)
+            sections_count = int(sections_count)
+            step_ms = max(1, int(step_ms))
+        except:
+            return
+
         if total_leds <= 0 or sections_count <= 0:
             return
         if not section_colors:
             return
 
         # Build section sizes.
-        if isinstance(leds_per_section, int):
-            section_sizes = [max(0, int(leds_per_section)) for _ in range(sections_count)]
-        else:
-            section_sizes = [max(0, int(v)) for v in list(leds_per_section)[:sections_count]]
-            if len(section_sizes) < sections_count:
-                return
+        try:
+            if isinstance(leds_per_section, int):
+                section_sizes = [max(0, int(leds_per_section)) for _ in range(sections_count)]
+            else:
+                section_sizes = [max(0, int(v)) for v in list(leds_per_section)[:sections_count]]
+                if len(section_sizes) < sections_count:
+                    return
+        except:
+            return
 
         # Build section metadata clipped to strip size.
         sections = []
@@ -358,7 +376,7 @@ class Neopixel:
             now = time.ticks_ms()
             if time.ticks_diff(now, next_tick) < 0:
                 continue
-            next_tick = time.ticks_add(next_tick, max(1, int(step_ms)))
+            next_tick = time.ticks_add(next_tick, step_ms)
 
             updated = False
             for idx, sec in enumerate(sections):
@@ -369,6 +387,12 @@ class Neopixel:
                 if next_pos >= sec["size"]:
                     sec["active"] = False
                     sec["done"] = True
+                    # If trigger threshold was never reached (e.g. threshold > size-1),
+                    # start the next section when this one finishes.
+                    if idx < transitions:
+                        nxt = sections[idx + 1]
+                        if (not nxt["active"]) and (not nxt["done"]):
+                            nxt["active"] = True
                     continue
 
                 if not trail and sec["last_abs"] is not None:
@@ -400,7 +424,7 @@ class Neopixel:
     def _GradientTransition(self, section_colors_now, section_colors_mid, section_colors_final,
                             leds_per_section, section_count, total_leds,
                             step_ms=16, start_brightness=40, max_brightness=255,
-                            repeat=False):
+                            repeat=False, phase_steps=120):
         if total_leds <= 0 or section_count <= 0:
             return
         if not section_colors_now or not section_colors_mid or not section_colors_final:
@@ -414,9 +438,6 @@ class Neopixel:
                 return
 
         start_brightness = max(1, min(255, int(start_brightness)))
-        max_brightness = max(1, min(255, int(max_brightness)))
-        if max_brightness < start_brightness:
-            start_brightness, max_brightness = max_brightness, start_brightness
 
         sections = []
         cursor = 0
@@ -432,35 +453,37 @@ class Neopixel:
             return
 
         def lerp(c1, c2, t):
-            return tuple(int(c1[k] + (c2[k] - c1[k]) * t) for k in range(len(c1)))
+            channels = min(len(c1), len(c2))
+            return tuple(int(round(c1[k] + (c2[k] - c1[k]) * t)) for k in range(channels))
 
-        phase_steps = 50
-        total_steps = phase_steps * 2
+        phase_steps = max(2, int(phase_steps))
+
+        def paint_phase(from_colors, to_colors, next_tick_ref):
+            for step in range(phase_steps + 1):
+                while True:
+                    now = time.ticks_ms()
+                    if time.ticks_diff(now, next_tick_ref[0]) >= 0:
+                        next_tick_ref[0] = time.ticks_add(next_tick_ref[0], max(1, int(step_ms)))
+                        break
+                self.brightness(start_brightness)
+                t = step / phase_steps
+                for idx, (start, size) in enumerate(sections):
+                    c_from = from_colors[idx % len(from_colors)]
+                    c_to = to_colors[idx % len(to_colors)]
+                    c = lerp(c_from, c_to, t)
+                    self.set_pixel_range(start, start + size - 1, c)
+                self.show()
 
         while True:
-            next_tick = time.ticks_ms()
-            for step in range(total_steps + 1):
-                now = time.ticks_ms()
-                if time.ticks_diff(now, next_tick) < 0:
-                    continue
-                next_tick = time.ticks_add(next_tick, max(1, int(step_ms)))
+            next_tick = [time.ticks_ms()]
 
-                b = start_brightness + (max_brightness - start_brightness) * step / total_steps
-                self.brightness(int(b))
+            # Forward: now -> mid -> final
+            paint_phase(section_colors_now, section_colors_mid, next_tick)
+            paint_phase(section_colors_mid, section_colors_final, next_tick)
 
-                for idx, (start, size) in enumerate(sections):
-                    c_now = section_colors_now[idx % len(section_colors_now)]
-                    c_mid = section_colors_mid[idx % len(section_colors_mid)]
-                    c_final = section_colors_final[idx % len(section_colors_final)]
-
-                    if step <= phase_steps:
-                        c = lerp(c_now, c_mid, step / phase_steps)
-                    else:
-                        c = lerp(c_mid, c_final, (step - phase_steps) / phase_steps)
-
-                    self.set_pixel_range(start, start + size - 1, c)
-
-                self.show()
+            # Return: final -> mid -> now
+            paint_phase(section_colors_final, section_colors_mid, next_tick)
+            paint_phase(section_colors_mid, section_colors_now, next_tick)
 
             if not repeat:
                 return
