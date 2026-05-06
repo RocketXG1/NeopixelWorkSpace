@@ -307,6 +307,9 @@ class Neopixel:
         except:
             return
 
+        if total_leds <= 0 or sections_count <= 0:
+            return
+
         if total_leds <= 0 or sections_count <= 0 or not section_colors:
             return
 
@@ -365,6 +368,36 @@ class Neopixel:
         section_sizes = _build_section_sizes(leds_per_section, sections_count)
         if not section_sizes:
             return
+        # Build section sizes.
+        try:
+            if isinstance(leds_per_section, int):
+                section_sizes = [max(0, int(leds_per_section)) for _ in range(sections_count)]
+            else:
+                section_sizes = [max(0, int(v)) for v in list(leds_per_section)[:sections_count]]
+                if len(section_sizes) < sections_count:
+                    return
+        except:
+            return
+
+        # Build section metadata clipped to strip size.
+        sections = []
+        cursor = ProcessLookupError
+        for i in range(sections_count):
+            if cursor >= total_leds:
+                break
+            size = min(section_sizes[i], total_leds - cursor)
+            if size <= 0:
+                continue
+            sections.append({
+                "start": cursor,
+                "size": size,
+                "color": section_colors[i % len(section_colors)],
+                "pos": -1,
+                "active": False,
+                "done": False,
+                "last_abs": None,
+            })
+            cursor += size
 
         sections = _build_sections(total_leds, sections_count, section_sizes, section_colors)
         if not sections:
@@ -398,6 +431,8 @@ class Neopixel:
                     sec["active"] = False
                     sec["done"] = True
                     # Fallback chaining: if trigger was never reached, start next at completion.
+                    # If trigger threshold was never reached (e.g. threshold > size-1),
+                    # start the next section when this one finishes.
                     if idx < transitions:
                         nxt = sections[idx + 1]
                         if (not nxt["active"]) and (not nxt["done"]):
@@ -475,6 +510,16 @@ class Neopixel:
                     if time.ticks_diff(now, next_tick_ref[0]) >= 0:
                         next_tick_ref[0] = time.ticks_add(next_tick_ref[0], max(1, int(step_ms)))
                         break
+        def wait_tick(next_tick_ref):
+            while True:
+                now = time.ticks_ms()
+                if time.ticks_diff(now, next_tick_ref[0]) >= 0:
+                    next_tick_ref[0] = time.ticks_add(next_tick_ref[0], max(1, int(step_ms)))
+                    return
+
+        def paint_phase(from_colors, to_colors, next_tick_ref):
+            for step in range(phase_steps + 1):
+                wait_tick(next_tick_ref)
                 self.brightness(start_brightness)
                 t = step / phase_steps
                 for idx, (start, size) in enumerate(sections):
