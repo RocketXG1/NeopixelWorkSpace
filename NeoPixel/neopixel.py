@@ -406,7 +406,7 @@ class Neopixel:
     def _GradientTransition(self, section_colors_now, section_colors_mid, section_colors_final,
                             leds_per_section, section_count, total_leds,
                             step_ms=16, start_brightness=40, max_brightness=255,
-                            repeat=False):
+                            repeat=False, phase_steps=120):
         if total_leds <= 0 or section_count <= 0:
             return
         if not section_colors_now or not section_colors_mid or not section_colors_final:
@@ -435,10 +435,17 @@ class Neopixel:
             return
 
         def lerp(c1, c2, t):
-            return tuple(int(c1[k] + (c2[k] - c1[k]) * t) for k in range(len(c1)))
+            channels = min(len(c1), len(c2))
+            return tuple(int(round(c1[k] + (c2[k] - c1[k]) * t)) for k in range(channels))
 
-        phase_steps = 50
+        phase_steps = max(2, int(phase_steps))
 
+        def wait_tick(next_tick_ref):
+            while True:
+                now = time.ticks_ms()
+                if time.ticks_diff(now, next_tick_ref[0]) >= 0:
+                    next_tick_ref[0] = time.ticks_add(next_tick_ref[0], max(1, int(step_ms)))
+                    return
 
         def paint_phase(from_colors, to_colors, next_tick_ref):
             for step in range(phase_steps + 1):
@@ -462,29 +469,6 @@ class Neopixel:
             # Return: final -> mid -> now
             paint_phase(section_colors_final, section_colors_mid, next_tick)
             paint_phase(section_colors_mid, section_colors_now, next_tick)
-
-            # Return: final -> mid -> now (smooth gradient back to initial colors)
-            for step in range(forward_steps + 1):
-                now = time.ticks_ms()
-                if time.ticks_diff(now, next_tick) < 0:
-                    continue
-                next_tick = time.ticks_add(next_tick, max(1, int(step_ms)))
-
-
-
-                for idx, (start, size) in enumerate(sections):
-                    c_now = section_colors_now[idx % len(section_colors_now)]
-                    c_mid = section_colors_mid[idx % len(section_colors_mid)]
-                    c_final = section_colors_final[idx % len(section_colors_final)]
-
-                    if step <= phase_steps:
-                        c = lerp(c_final, c_mid, step / phase_steps)
-                    else:
-                        c = lerp(c_mid, c_now, (step - phase_steps) / phase_steps)
-
-                    self.set_pixel_range(start, start + size - 1, c)
-
-                self.show()
 
             if not repeat:
                 return
