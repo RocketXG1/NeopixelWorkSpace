@@ -440,6 +440,13 @@ class Neopixel:
 
         phase_steps = max(2, int(phase_steps))
 
+        def paint_phase(from_colors, to_colors, next_tick_ref):
+            for step in range(phase_steps + 1):
+                while True:
+                    now = time.ticks_ms()
+                    if time.ticks_diff(now, next_tick_ref[0]) >= 0:
+                        next_tick_ref[0] = time.ticks_add(next_tick_ref[0], max(1, int(step_ms)))
+                        break
         def wait_tick(next_tick_ref):
             while True:
                 now = time.ticks_ms()
